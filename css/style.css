@@ -1,0 +1,717 @@
+/* ============================================================
+   TOWER CRASH 3D — style.css
+   Bright sky → ocean gradient, clean GameSnacks-style HUD,
+   stacked power-up cards, and a polished overlay panel.
+   ============================================================ */
+
+:root {
+  --sky-top:      #8fd4ff;
+  --sky-mid:      #c3e9ff;
+  --sky-low:      #5fb6f2;
+  --ocean-top:    #2f8fe0;
+  --ocean-bottom: #0b3f8f;
+
+  --ink:        #0d2340;
+  --ink-soft:   #35597f;
+  --ink-faint:  #6e8bb0;
+
+  --card:        rgba(255, 255, 255, 0.82);
+  --card-strong: rgba(255, 255, 255, 0.94);
+  --card-border: rgba(255, 255, 255, 0.92);
+
+  --gold:      #ffcc33;
+  --gold-dark: #c78f00;
+  --gold-deep: #8a5f00;
+
+  --blue:      #2f8fe0;
+  --blue-dark: #1b6bb5;
+  --blue-deep: #0d3f75;
+
+  --shadow-soft: 0 10px 26px rgba(9, 40, 80, 0.18);
+  --shadow-hard: 0 30px 80px rgba(6, 36, 80, 0.45);
+
+  --radius-pill: 999px;
+  --radius-card: 16px;
+  --radius-panel: 24px;
+
+  --hud-pad: 14px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ------------------------------------------------------------
+   RESET / BASE
+   ------------------------------------------------------------ */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  position: relative;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  color: var(--ink);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  background:
+    linear-gradient(
+      to bottom,
+      var(--sky-top)   0%,
+      var(--sky-mid)  28%,
+      var(--sky-low)  52%,
+      var(--ocean-top) 70%,
+      var(--ocean-bottom) 100%
+    );
+}
+
+/* ------------------------------------------------------------
+   SCENE HOST / BACKGROUND WASHES
+   ------------------------------------------------------------ */
+#scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: auto;
+}
+
+#scene canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent;
+}
+
+#skyWash,
+#oceanWash {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+#skyWash {
+  top: 0;
+  height: 62%;
+  background:
+    radial-gradient(ellipse at 50% 16%, rgba(255, 255, 255, 0.60) 0%, rgba(255, 255, 255, 0.00) 58%),
+    radial-gradient(ellipse at 82% 8%,  rgba(255, 248, 210, 0.30) 0%, rgba(255, 248, 210, 0.00) 42%);
+  mix-blend-mode: screen;
+}
+
+#oceanWash {
+  bottom: 0;
+  height: 44%;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(47, 143, 224, 0)    0%,
+      rgba(28, 110, 195, 0.45) 42%,
+      rgba(11,  63, 143, 0.82) 100%
+    ),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.000) 0px,
+      rgba(255, 255, 255, 0.000) 26px,
+      rgba(255, 255, 255, 0.045) 26px,
+      rgba(255, 255, 255, 0.045) 28px
+    );
+}
+
+/* ------------------------------------------------------------
+   HUD SHELL
+   ------------------------------------------------------------ */
+#hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--hud-pad) var(--hud-pad) calc(var(--hud-pad) + var(--safe-bottom));
+  pointer-events: none;
+}
+
+#hud button,
+#hud .coinChip,
+#hud .powerCard {
+  pointer-events: auto;
+}
+
+/* ------------------------------------------------------------
+   TOP BAR
+   ------------------------------------------------------------ */
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* ---- Coins ---- */
+.coinChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--ink);
+  font-weight: 800;
+  line-height: 1;
+  min-width: 78px;
+}
+
+.coinIcon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 2px 3px rgba(138, 95, 0, 0.35));
+}
+
+.coinValue {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+}
+
+/* ---- Level / progress ---- */
+.levelBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 190px;
+  max-width: 46vw;
+  padding: 7px 14px 10px;
+  border-radius: var(--radius-card);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.levelLabels {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.levelNow {
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--blue-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.levelNext {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+
+.levelTrack {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(13, 35, 64, 0.14);
+  box-shadow: inset 0 1px 2px rgba(13, 35, 64, 0.12);
+  overflow: visible;
+}
+
+.levelFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, #ffd23f 0%, #ffb01f 55%, #ff8a00 100%);
+  box-shadow: 0 0 10px rgba(255, 176, 31, 0.55);
+}
+
+.levelNotch {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--blue-dark);
+  box-shadow: 0 2px 6px rgba(6, 36, 80, 0.30);
+}
+
+/* ---- Shop / cart ---- */
+.iconBtn {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--blue-dark);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+}
+
+.iconBtn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.iconBtn:active {
+  transform: scale(0.93);
+  box-shadow: 0 4px 12px rgba(9, 40, 80, 0.22);
+}
+
+/* ------------------------------------------------------------
+   POWER-UP RAIL (right side)
+   ------------------------------------------------------------ */
+.powerRail {
+  position: fixed;
+  top: 96px;
+  right: var(--hud-pad);
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.powerCard {
+  position: relative;
+  width: 92px;
+  padding: 10px 8px 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.powerCard:active {
+  transform: scale(0.94);
+}
+
+.powerCard:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.powerCard.armed {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.55), 0 0 26px rgba(255, 210, 63, 0.55);
+}
+
+.powerIcon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #eaf5ff, #c9e3fb);
+  color: var(--blue-dark);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.powerIcon svg {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+.powerLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  line-height: 1.1;
+  text-align: center;
+}
+
+.powerPrice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--gold-deep);
+  line-height: 1;
+}
+
+.miniCoin {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 1px 1px rgba(138, 95, 0, 0.35));
+}
+
+.powerBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #5d8bff, #2c53e0);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 3px 10px rgba(6, 36, 80, 0.35);
+}
+
+/* ------------------------------------------------------------
+   BOTTOM CHIPS / HINT
+   ------------------------------------------------------------ */
+.ballChip {
+  position: fixed;
+  left: var(--hud-pad);
+  bottom: calc(var(--hud-pad) + var(--safe-bottom));
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.ballDot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ball-color, #ff4d5a);
+  box-shadow: 0 0 12px var(--ball-color, #ff4d5a);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ballValue {
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--hud-pad) + var(--safe-bottom));
+  z-index: 10;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(9, 40, 80, 0.28);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 20, 60, 0.45);
+  box-shadow: 0 6px 18px rgba(6, 36, 80, 0.25);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------
+   OVERLAY / PANEL
+   ------------------------------------------------------------ */
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background:
+    radial-gradient(
+      circle at 50% 38%,
+      rgba(30, 90, 170, 0.55) 0%,
+      rgba(8, 32, 76, 0.82) 70%,
+      rgba(4, 18, 46, 0.92) 100%
+    );
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#overlay.show {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.panel {
+  width: min(430px, 100%);
+  padding: 30px 26px 26px;
+  border-radius: var(--radius-panel);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(233, 244, 255, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-hard);
+  text-align: center;
+  color: var(--ink);
+  opacity: 0;
+  transform: translateY(12px) scale(0.97);
+  transform-origin: center;
+}
+
+.panelTitle {
+  margin-bottom: 10px;
+  font-size: clamp(24px, 7vw, 34px);
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  background: linear-gradient(180deg, #1b6bb5 0%, #0d2340 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.panelText {
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.panelText b {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.panelBtn {
+  display: block;
+  width: 100%;
+  padding: 15px 20px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #4a9ef0 0%, #1b6bb5 100%);
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow:
+    0 10px 26px rgba(27, 107, 181, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+}
+
+.panelBtn:active {
+  transform: translateY(2px) scale(0.985);
+  box-shadow:
+    0 6px 16px rgba(27, 107, 181, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30);
+}
+
+/* ------------------------------------------------------------
+   RESPONSIVE
+   ------------------------------------------------------------ */
+@media (max-width: 480px) {
+  :root {
+    --hud-pad: 10px;
+  }
+
+  .coinChip {
+    min-width: 66px;
+    padding: 6px 11px 6px 8px;
+    gap: 6px;
+  }
+
+  .coinIcon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .coinValue {
+    font-size: 16px;
+  }
+
+  .levelBlock {
+    min-width: 148px;
+    max-width: 44vw;
+    padding: 6px 11px 8px;
+  }
+
+  .levelNow {
+    font-size: 16px;
+  }
+
+  .levelNext {
+    font-size: 10px;
+  }
+
+  .levelTrack {
+    height: 9px;
+  }
+
+  .iconBtn {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .iconBtn svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .powerRail {
+    top: 88px;
+    gap: 8px;
+  }
+
+  .powerCard {
+    width: 78px;
+    padding: 8px 6px 7px;
+    border-radius: 14px;
+    gap: 3px;
+  }
+
+  .powerIcon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+
+  .powerIcon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .powerLabel {
+    font-size: 9px;
+  }
+
+  .powerPrice {
+    font-size: 10px;
+  }
+
+  .powerBadge {
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    font-size: 10px;
+  }
+
+  .ballChip {
+    padding: 6px 11px;
+    gap: 6px;
+  }
+
+  .ballValue {
+    font-size: 14px;
+  }
+
+  .ballDot {
+    width: 14px;
+    height: 14px;
+  }
+
+  .hint {
+    font-size: 11px;
+    padding: 6px 12px;
+    bottom: calc(var(--hud-pad) + var(--safe-bottom));
+  }
+
+  .panel {
+    padding: 26px 20px 22px;
+    border-radius: 20px;
+  }
+
+  .panelText {
+    font-size: 13px;
+  }
+
+  .panelBtn {
+    padding: 14px 18px;
+    font-size: 16px;
+  }
+}
+
+@media (max-height: 520px) {
+  .powerRail {
+    top: 74px;
+    gap: 6px;
+  }
+
+  .powerCard {
+    padding: 6px 6px 5px;
+  }
+
+  .powerLabel {
+    display: none;
+  }
+
+  .hint {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------
+   ACCESSIBILITY / REDUCED MOTION
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .powerCard,
+  .iconBtn,
+  .panelBtn,
+  .levelFill,
+  .levelNotch,
+  .ballDot {
+    transition: none;
+  }
+}
+
+/* Keyboard focus rings (mouse users don't see them) */
+button:focus-visible {
+  outline: 3px solid rgba(255, 210, 63, 0.95);
+  outline-offset: 2px;
+}

@@ -2,253 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Tower Crash 3D — Anime Upgrade</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#2f8fe0" />
+<meta name="description" content="Tower Crash 3D — aim, match colors, topple the tower." />
+<title>Tower Crash 3D</title>
 
-<!--
-================================================================================
- TOWER CRASH 3D  —  ANIME.JS UPGRADE
-================================================================================
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f8fe0'/%3E%3Crect x='9' y='6' width='14' height='5' rx='1.5' fill='%23ff4d5a'/%3E%3Crect x='9' y='13' width='14' height='5' rx='1.5' fill='%23ffd23f'/%3E%3Crect x='9' y='20' width='14' height='5' rx='1.5' fill='%2335e07c'/%3E%3C/svg%3E" />
 
-HOW TO PLAY
------------
-* Low over-the-shoulder camera sits just behind and above the cannon.
-* Move the mouse (or drag) to aim. Dotted arc previews the ball path.
-* Click / tap / release to fire.
-* Same-colored blocks are DESTROYED and the ball chains through them.
-* Different-colored blocks BOUNCE the ball back.
-* Clear every block before running out of balls.
-* Tap the orb (bottom center) to cycle to another color still on the field.
-* Power-ups:
-    - Earthquake 🌋 : destroys a random chunk and shakes the rest.
-    - Shotgun 💥    : next shot fires 5 balls in a spread for the price of 1.
-
-ASSUMPTIONS
------------
-* Three.js 0.160.0, cannon-es 0.20.0 and anime.js 3.2.2 are pulled from CDN
-  via an ES-module importmap. Internet connection is required on first load.
-* Camera is low over-the-shoulder, slightly offset, looking down the firing
-  lane at the towers (matches the "aim down the lane" feel of the original).
-* Bright saturated candy palette, mostly flat shading with a soft emissive
-  glow so every block reads as a colourful toy brick.
-* Difficulty ramps quickly: more colors and taller, more varied towers by
-  level 5–6 — same spirit as the original GameSnacks title.
-* All visual effects (particle bursts, screen shake, camera punch, HUD
-  counting, button feedback, overlay transitions) are driven by anime.js.
-* No external audio assets are used.
-================================================================================
--->
-
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-
-  html, body {
-    width:100%; height:100%; overflow:hidden;
-    background:#070a16;
-    font-family:"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
-    color:#eaf0ff;
-    -webkit-user-select:none; user-select:none;
-    -webkit-tap-highlight-color:transparent;
-    touch-action:none; overscroll-behavior:none;
-  }
-
-  canvas { display:block; position:fixed; inset:0; }
-
-  /* ---------------- HUD ---------------- */
-  #hud {
-    position:fixed; inset:0; z-index:10;
-    pointer-events:none;
-    display:flex; flex-direction:column; justify-content:space-between;
-    padding:14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .topbar {
-    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
-  }
-
-  .chip {
-    background:rgba(16,22,46,.74);
-    border:1px solid rgba(120,160,255,.26);
-    border-radius:14px;
-    padding:7px 14px;
-    backdrop-filter:blur(10px);
-    -webkit-backdrop-filter:blur(10px);
-    box-shadow:0 8px 22px rgba(0,0,0,.42);
-    min-width:76px;
-    text-align:center;
-  }
-  .chip .label {
-    display:block; font-size:9px; letter-spacing:.18em;
-    color:#8fa4d0; text-transform:uppercase; margin-bottom:1px;
-  }
-  .chip .value { font-size:19px; font-weight:800; line-height:1.05; letter-spacing:.02em; }
-
-  .powers { display:flex; gap:9px; }
-
-  .power {
-    pointer-events:auto;
-    position:relative;
-    width:52px; height:52px;
-    border-radius:16px;
-    border:1px solid rgba(120,160,255,.3);
-    background:rgba(16,22,46,.78);
-    color:#eaf0ff;
-    font-size:22px; line-height:1;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer;
-    backdrop-filter:blur(10px);
-    -webkit-backdrop-filter:blur(10px);
-    box-shadow:0 8px 22px rgba(0,0,0,.42);
-    transition:border-color .2s ease, box-shadow .2s ease;
-  }
-  .power:disabled { opacity:.35; cursor:default; }
-  .power.armed {
-    border-color:#ffd23f;
-    box-shadow:0 0 0 2px rgba(255,210,63,.55), 0 0 26px rgba(255,210,63,.55);
-  }
-  .power .badge {
-    position:absolute; right:-5px; top:-5px;
-    min-width:20px; height:20px; padding:0 5px;
-    border-radius:10px;
-    background:linear-gradient(180deg,#4f7dff,#2a51d6);
-    font-size:11px; font-weight:800; line-height:20px;
-    text-align:center;
-    box-shadow:0 3px 10px rgba(0,0,0,.5);
-  }
-
-  /* ---------------- Bottom bar ---------------- */
-  .bottombar {
-    display:flex; align-items:center; justify-content:center; gap:14px;
-  }
-
-  #orbWrap {
-    pointer-events:auto;
-    display:flex; align-items:center; gap:12px;
-    padding:8px 18px 8px 10px;
-    border-radius:40px;
-    background:rgba(16,22,46,.72);
-    border:1px solid rgba(120,160,255,.26);
-    backdrop-filter:blur(10px);
-    -webkit-backdrop-filter:blur(10px);
-    box-shadow:0 8px 22px rgba(0,0,0,.42);
-    cursor:pointer;
-    transition:transform .12s ease;
-  }
-  #orbWrap:active { transform:scale(.96); }
-
-  #orb {
-    width:38px; height:38px; border-radius:50%;
-    background:#3aa0ff;
-    box-shadow:0 0 22px #3aa0ffaa;
-    transition:background .2s ease, box-shadow .2s ease;
-  }
-  #orbText { display:flex; flex-direction:column; line-height:1.15; }
-  #orbText .t1 { font-size:9px; letter-spacing:.18em; color:#8fa4d0; text-transform:uppercase; }
-  #orbText .t2 { font-size:13px; font-weight:700; }
-
-  /* ---------------- Overlay ---------------- */
-  #overlay {
-    position:fixed; inset:0; z-index:30;
-    display:flex; align-items:center; justify-content:center;
-    padding:22px;
-    background:radial-gradient(circle at 50% 40%, rgba(24,36,86,.86), rgba(4,7,18,.94));
-    backdrop-filter:blur(6px);
-    -webkit-backdrop-filter:blur(6px);
-    opacity:0; pointer-events:none;
-  }
-  #overlay.show { pointer-events:auto; }
-
-  .panel {
-    width:min(430px, 100%);
-    text-align:center;
-    padding:30px 26px 26px;
-    border-radius:24px;
-    background:linear-gradient(180deg, rgba(30,42,90,.92), rgba(14,20,44,.96));
-    border:1px solid rgba(120,160,255,.3);
-    box-shadow:0 24px 70px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.08);
-    opacity:0;
-    transform:translateY(10px) scale(.98);
-  }
-
-  .panel h1 {
-    font-size:clamp(24px, 7vw, 34px);
-    font-weight:900;
-    letter-spacing:.01em;
-    background:linear-gradient(180deg,#ffffff,#9db6ff);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
-    margin-bottom:10px;
-  }
-  .panel p {
-    font-size:14px; line-height:1.6; color:#b9c6ea; margin-bottom:20px;
-  }
-  .panel p b { color:#ffffff; }
-
-  #ovBtn {
-    pointer-events:auto;
-    width:100%;
-    padding:15px 20px;
-    border:none; border-radius:16px;
-    background:linear-gradient(180deg,#5d8bff,#2c53e0);
-    color:#fff; font-size:17px; font-weight:800; letter-spacing:.05em;
-    cursor:pointer;
-    box-shadow:0 10px 26px rgba(60,110,255,.45), inset 0 1px 0 rgba(255,255,255,.35);
-    transition:transform .12s ease, box-shadow .2s ease;
-  }
-  #ovBtn:active { transform:translateY(2px) scale(.985); box-shadow:0 6px 16px rgba(60,110,255,.4); }
-
-  @media (max-width: 420px) {
-    .power { width:46px; height:46px; font-size:19px; border-radius:14px; }
-    .chip { min-width:66px; padding:6px 11px; }
-    .chip .value { font-size:17px; }
-  }
-</style>
-</head>
-<body>
-
-<div id="hud">
-  <div class="topbar">
-    <div class="chip">
-      <span class="label">Level</span>
-      <span class="value" id="elLevel">1</span>
-    </div>
-
-    <div class="chip">
-      <span class="label">Balls</span>
-      <span class="value" id="elBalls">0</span>
-    </div>
-
-    <div class="powers">
-      <button class="power" id="btnQuake" title="Earthquake">
-        🌋<span class="badge" id="elQuake">1</span>
-      </button>
-      <button class="power" id="btnShotgun" title="Shotgun">
-        💥<span class="badge" id="elShotgun">1</span>
-      </button>
-    </div>
-  </div>
-
-  <div class="bottombar">
-    <div id="orbWrap">
-      <div id="orb"></div>
-      <div id="orbText">
-        <span class="t1">Next Ball</span>
-        <span class="t2">Tap to switch</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="overlay">
-  <div class="panel" id="panel">
-    <h1 id="ovTitle">TOWER CRASH 3D</h1>
-    <p id="ovText">
-      Aim with the mouse, click to fire.<br>
-      <b>Match the colors</b> to smash the towers — everything else bounces off.
-    </p>
-    <button id="ovBtn">PLAY</button>
-  </div>
-</div>
+<link rel="stylesheet" href="./css/style.css" />
 
 <script type="importmap">
 {
@@ -259,982 +20,132 @@ ASSUMPTIONS
   }
 }
 </script>
-
-<script type="module">
-import * as THREE from 'three';
-import * as CANNON from 'cannon-es';
-import anime from 'animejs';
-
-/* ============================================================
-   CONSTANTS
-   ============================================================ */
-const BLOCK       = 1.1;
-const BALL_R      = 0.5;
-const BALL_SPEED  = 40;
-const GRAVITY     = 22;
-const CANNON_POS  = new THREE.Vector3(0, 1.7, 15);
-const UP          = new THREE.Vector3(0, 1, 0);
-const HIT_R2      = 1.35;
-
-const COLOR_DEFS = [
-  { hex: 0xff4d5a, css: '#ff4d5a' }, // red
-  { hex: 0x3aa0ff, css: '#3aa0ff' }, // blue
-  { hex: 0x35e07c, css: '#35e07c' }, // green
-  { hex: 0xffd23f, css: '#ffd23f' }, // yellow
-  { hex: 0xa66bff, css: '#a66bff' }, // purple
-  { hex: 0xff8a3d, css: '#ff8a3d' }  // orange
-];
-
-/* ============================================================
-   DOM
-   ============================================================ */
-const elLevel    = document.getElementById('elLevel');
-const elBalls    = document.getElementById('elBalls');
-const elQuake    = document.getElementById('elQuake');
-const elShotgun  = document.getElementById('elShotgun');
-const elOrb      = document.getElementById('orb');
-const elOrbText  = document.querySelector('#orbText .t2');
-const orbWrap    = document.getElementById('orbWrap');
-const btnQuake   = document.getElementById('btnQuake');
-const btnShotgun = document.getElementById('btnShotgun');
-const overlay    = document.getElementById('overlay');
-const panel      = document.getElementById('panel');
-const ovTitle    = document.getElementById('ovTitle');
-const ovText     = document.getElementById('ovText');
-const ovBtn      = document.getElementById('ovBtn');
-
-/* ============================================================
-   RENDERER / SCENE / CAMERA  (low over-the-shoulder)
-   ============================================================ */
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
-document.body.appendChild(renderer.domElement);
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0f22);
-scene.fog = new THREE.Fog(0x0a0f22, 42, 90);
-
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 300);
-
-// low over-the-shoulder: slightly right of the cannon, just above the barrel
-const camBase = new THREE.Vector3(1.1, 3.2, 21.5);
-const camLook = new THREE.Vector3(0, 3.4, -2);
-camera.position.copy(camBase);
-camera.lookAt(camLook);
-
-/* ---------------- Lights ---------------- */
-scene.add(new THREE.HemisphereLight(0xcadcff, 0x1a1030, 1.25));
-
-const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-sun.position.set(12, 26, 14);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left   = -26;
-sun.shadow.camera.right  =  26;
-sun.shadow.camera.top    =  26;
-sun.shadow.camera.bottom = -26;
-sun.shadow.camera.near   = 1;
-sun.shadow.camera.far    = 90;
-sun.shadow.bias = -0.0008;
-scene.add(sun);
-
-const rim = new THREE.DirectionalLight(0x4d7bff, 1.4);
-rim.position.set(-14, 12, -18);
-scene.add(rim);
-
-const fill = new THREE.PointLight(0xff7ad9, 0.7, 40, 2);
-fill.position.set(0, 8, 12);
-scene.add(fill);
-
-/* ---------------- Arena floor & details ---------------- */
-const groundGeo = new THREE.CircleGeometry(46, 96);
-groundGeo.rotateX(-Math.PI / 2);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x111a34, roughness: 0.93, metalness: 0.08 });
-const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-groundMesh.receiveShadow = true;
-scene.add(groundMesh);
-
-const grid = new THREE.GridHelper(70, 36, 0x2f4480, 0x1a2650);
-grid.position.y = 0.012;
-grid.material.opacity = 0.55;
-grid.material.transparent = true;
-scene.add(grid);
-
-// glowing ring around the arena
-const ring = new THREE.Mesh(
-  new THREE.TorusGeometry(17, 0.18, 12, 120),
-  new THREE.MeshStandardMaterial({ color: 0x4d7bff, emissive: 0x4d7bff, emissiveIntensity: 1.4, roughness: 0.3 })
-);
-ring.rotation.x = Math.PI / 2;
-ring.position.y = 0.06;
-scene.add(ring);
-
-// back wall / skybox pillars for depth
-for (let i = 0; i < 14; i++) {
-  const a = (i / 14) * Math.PI * 2;
-  const r = 22;
-  const pillar = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, 8, 1.2),
-    new THREE.MeshStandardMaterial({ color: 0x1b264a, roughness: 0.8, metalness: 0.35 })
-  );
-  pillar.position.set(Math.cos(a) * r, 4, Math.sin(a) * r);
-  pillar.castShadow = true;
-  pillar.receiveShadow = true;
-  scene.add(pillar);
-}
-
-/* ============================================================
-   PHYSICS WORLD
-   ============================================================ */
-const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -GRAVITY, 0) });
-world.broadphase = new CANNON.SAPBroadphase(world);
-world.allowSleep = false;
-world.solver.iterations = 20;
-world.solver.tolerance = 0.001;
-
-const matGround = new CANNON.Material('ground');
-const matBlock  = new CANNON.Material('block');
-const matBall   = new CANNON.Material('ball');
-
-world.addContactMaterial(new CANNON.ContactMaterial(matBall, matBlock,  { friction: 0.15, restitution: 0.72 }));
-world.addContactMaterial(new CANNON.ContactMaterial(matBall, matGround, { friction: 0.30, restitution: 0.58 }));
-world.addContactMaterial(new CANNON.ContactMaterial(matBlock, matBlock, { friction: 0.62, restitution: 0.00 }));
-world.addContactMaterial(new CANNON.ContactMaterial(matBlock, matGround,{ friction: 0.72, restitution: 0.00 }));
-world.defaultContactMaterial.friction = 0.5;
-world.defaultContactMaterial.restitution = 0.05;
-
-const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: matGround });
-groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-world.addBody(groundBody);
-
-/* ============================================================
-   GEOMETRY / MATERIAL CACHES  (bright candy + soft glow)
-   ============================================================ */
-const blockGeo = new THREE.BoxGeometry(BLOCK * 0.96, BLOCK * 0.96, BLOCK * 0.96);
-const ballGeo  = new THREE.SphereGeometry(BALL_R, 24, 18);
-
-const blockMats = COLOR_DEFS.map(c => new THREE.MeshStandardMaterial({
-  color: c.hex,
-  roughness: 0.38,
-  metalness: 0.15,
-  emissive: c.hex,
-  emissiveIntensity: 0.22,
-  flatShading: true
-}));
-
-const ballMats = COLOR_DEFS.map(c => new THREE.MeshStandardMaterial({
-  color: c.hex,
-  roughness: 0.22,
-  metalness: 0.3,
-  emissive: c.hex,
-  emissiveIntensity: 0.6,
-  flatShading: true
-}));
-
-/* ============================================================
-   CANNON MESH
-   ============================================================ */
-const cannonGroup = new THREE.Group();
-cannonGroup.position.copy(CANNON_POS);
-scene.add(cannonGroup);
-
-const barrelGeo = new THREE.CylinderGeometry(0.5, 0.72, 2.4, 22);
-barrelGeo.rotateX(Math.PI / 2);
-barrelGeo.translate(0, 0, 1.2);
-
-const barrelMesh = new THREE.Mesh(barrelGeo, new THREE.MeshStandardMaterial({
-  color: 0x9fb0cc, roughness: 0.3, metalness: 0.85, flatShading: true
-}));
-barrelMesh.castShadow = true;
-cannonGroup.add(barrelMesh);
-
-const barrelMouth = new THREE.Mesh(
-  new THREE.TorusGeometry(0.48, 0.09, 8, 22),
-  new THREE.MeshStandardMaterial({ color: 0xffd23f, roughness: 0.35, metalness: 0.6, emissive: 0x664400, emissiveIntensity: 0.6 })
-);
-barrelMouth.position.z = 2.4;
-cannonGroup.add(barrelMouth);
-
-const baseMesh = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.95, 1.15, 0.7, 24),
-  new THREE.MeshStandardMaterial({ color: 0x2a3450, roughness: 0.7, metalness: 0.35 })
-);
-baseMesh.position.y = -0.35;
-baseMesh.castShadow = true;
-baseMesh.receiveShadow = true;
-cannonGroup.add(baseMesh);
-
-/* ============================================================
-   AIM DOTS
-   ============================================================ */
-const aimDots = [];
-const dotGeo = new THREE.SphereGeometry(0.1, 8, 6);
-const dotMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false });
-for (let i = 0; i < 20; i++) {
-  const d = new THREE.Mesh(dotGeo, dotMat);
-  d.visible = false;
-  scene.add(d);
-  aimDots.push(d);
-}
-
-/* ============================================================
-   GAME STATE
-   ============================================================ */
-const state = {
-  level: 1,
-  ballsLeft: 0,
-  currentColor: 0,
-  playing: false,
-  endTimer: 0,
-  quake: 1,
-  shotgun: 1,
-  shotgunArmed: false,
-  shakeTime: 0,
-  punch: 0
-};
-
-let blocks = [];
-let balls  = [];
-let particles = [];
-
-/* ============================================================
-   AIM
-   ============================================================ */
-let aimYaw = 0;
-let aimPitch = 0.24;
-
-function getAimDir() {
-  const cp = Math.cos(aimPitch);
-  return new THREE.Vector3(
-    Math.sin(aimYaw) * cp,
-    Math.sin(aimPitch),
-    -Math.cos(aimYaw) * cp
-  );
-}
-
-function updatePointer(clientX, clientY) {
-  const nx = (clientX / window.innerWidth) * 2 - 1;
-  const ny = -((clientY / window.innerHeight) * 2 - 1);
-  aimYaw   =  nx * 0.72;
-  aimPitch =  0.24 + ny * 0.30;
-  aimPitch = Math.max(-0.05, Math.min(0.58, aimPitch));
-}
-
-function updateCannonVisual() {
-  const dir = getAimDir();
-  cannonGroup.lookAt(
-    CANNON_POS.x + dir.x,
-    CANNON_POS.y + dir.y,
-    CANNON_POS.z + dir.z
-  );
-}
-
-/* ============================================================
-   LEVEL BUILDING
-   ============================================================ */
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function clearField() {
-  for (const b of blocks) {
-    scene.remove(b.mesh);
-    world.removeBody(b.body);
-  }
-  blocks.length = 0;
-
-  for (const bl of balls) {
-    scene.remove(bl.mesh);
-    world.removeBody(bl.body);
-  }
-  balls.length = 0;
-
-  for (const p of particles) scene.remove(p.mesh);
-  particles.length = 0;
-}
-
-function addBlock(x, y, z, colorIdx) {
-  const half = BLOCK / 2;
-  const body = new CANNON.Body({
-    mass: 1,
-    shape: new CANNON.Box(new CANNON.Vec3(half, half, half)),
-    position: new CANNON.Vec3(x, y, z),
-    material: matBlock,
-    linearDamping: 0.06,
-    angularDamping: 0.18
-  });
-  body.allowSleep = false;
-  world.addBody(body);
-
-  const mesh = new THREE.Mesh(blockGeo, blockMats[colorIdx]);
-  mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-
-  blocks.push({ mesh, body, color: colorIdx });
-}
-
-function buildLevel(level) {
-  clearField();
-
-  // faster ramp: 2 colors at L1, 3 at L2, 4 at L3, 5 at L4, 6 at L5+
-  const numColors = Math.min(2 + Math.floor(level / 1.5), COLOR_DEFS.length);
-  const pool = shuffle([...COLOR_DEFS.keys()]);
-  const palette = pool.slice(0, numColors);
-
-  const spacing = 3.8;
-  const cells = [];
-  for (let gx = -1; gx <= 1; gx++) {
-    for (let gz = -1; gz <= 1; gz++) {
-      cells.push({ x: gx * spacing, z: gz * spacing });
-    }
-  }
-  shuffle(cells);
-
-  // tower count grows faster
-  const towerCount = Math.min(2 + Math.floor(level * 0.9), 9);
-  const baseHeight = Math.min(3 + Math.floor(level * 0.8), 10);
-
-  for (let t = 0; t < towerCount; t++) {
-    const cell = cells[t];
-    const colorIdx = palette[t % palette.length];
-    // taller & more varied heights with level
-    const variance = Math.min(1 + Math.floor(level / 3), 3);
-    const height = Math.max(3, baseHeight + Math.floor(Math.random() * (variance * 2 + 1)) - variance);
-
-    for (let h = 0; h < height; h++) {
-      addBlock(
-        cell.x,
-        BLOCK / 2 + h * BLOCK + 0.001,
-        cell.z,
-        colorIdx
-      );
-    }
-  }
-
-  const avail = getAvailableColors();
-  state.currentColor = avail.length ? avail[Math.floor(Math.random() * avail.length)] : 0;
-}
-
-/* ============================================================
-   COLORS
-   ============================================================ */
-function getAvailableColors() {
-  const s = new Set();
-  for (const b of blocks) s.add(b.color);
-  return [...s].sort((a, b) => a - b);
-}
-
-function cycleColor() {
-  const avail = getAvailableColors();
-  if (!avail.length) return;
-  const i = avail.indexOf(state.currentColor);
-  state.currentColor = avail[(i + 1) % avail.length];
-}
-
-/* ============================================================
-   PARTICLES (anime.js driven)
-   ============================================================ */
-const pGeo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
-const pMats = COLOR_DEFS.map(c => new THREE.MeshBasicMaterial({ color: c.hex }));
-
-function spawnBurst(pos, colorIdx) {
-  for (let i = 0; i < 10; i++) {
-    const m = new THREE.Mesh(pGeo, pMats[colorIdx]);
-    m.position.copy(pos);
-    m.scale.setScalar(0.6 + Math.random() * 0.9);
-    scene.add(m);
-
-    const p = {
-      mesh: m,
-      vel: new THREE.Vector3(
-        (Math.random() - 0.5) * 10,
-        Math.random() * 9 + 2,
-        (Math.random() - 0.5) * 10
-      ),
-      life: 0,
-      max: 0.55 + Math.random() * 0.35,
-      rotX: (Math.random() - 0.5) * 16,
-      rotY: (Math.random() - 0.5) * 16
-    };
-    particles.push(p);
-
-    anime({
-      targets: p.mesh.scale,
-      x: [p.mesh.scale.x, 0.001],
-      y: [p.mesh.scale.y, 0.001],
-      z: [p.mesh.scale.z, 0.001],
-      duration: p.max * 1000,
-      easing: 'easeOutQuad'
-    });
-  }
-}
-
-/* ============================================================
-   DESTRUCTION
-   ============================================================ */
-function destroyBlock(bk) {
-  scene.remove(bk.mesh);
-  world.removeBody(bk.body);
-  spawnBurst(bk.mesh.position, bk.color);
-}
-
-/* ============================================================
-   BALLS
-   ============================================================ */
-function spawnBall(dir, colorIdx) {
-  const start = CANNON_POS.clone().addScaledVector(dir, 2.9);
-
-  const body = new CANNON.Body({
-    mass: 4,
-    shape: new CANNON.Sphere(BALL_R),
-    position: new CANNON.Vec3(start.x, start.y, start.z),
-    material: matBall,
-    linearDamping: 0.0,
-    angularDamping: 0.05
-  });
-  body.velocity.set(dir.x * BALL_SPEED, dir.y * BALL_SPEED, dir.z * BALL_SPEED);
-  world.addBody(body);
-
-  const mesh = new THREE.Mesh(ballGeo, ballMats[colorIdx]);
-  mesh.castShadow = true;
-  mesh.position.copy(start);
-  scene.add(mesh);
-
-  // spawn pop
-  anime({
-    targets: mesh.scale,
-    x: [0.2, 1], y: [0.2, 1], z: [0.2, 1],
-    duration: 180,
-    easing: 'easeOutBack'
-  });
-
-  balls.push({ mesh, body, color: colorIdx, age: 0, slow: 0 });
-}
-
-function shoot() {
-  if (!state.playing || state.ballsLeft <= 0) return;
-
-  const dir = getAimDir();
-  const color = state.currentColor;
-
-  if (state.shotgunArmed) {
-    state.shotgunArmed = false;
-    for (let i = -2; i <= 2; i++) {
-      const d = dir.clone().applyAxisAngle(UP, i * 0.055);
-      d.y += i * 0.014;
-      d.normalize();
-      spawnBall(d, color);
-    }
-  } else {
-    spawnBall(dir, color);
-  }
-
-  // camera punch on fire
-  anime({
-    targets: state,
-    punch: [1, 0],
-    duration: 220,
-    easing: 'easeOutQuad'
-  });
-
-  state.ballsLeft--;
-  cycleColor();
-  updateHUD(true);
-  animePulseOrb();
-}
-
-/* ============================================================
-   POWER-UPS
-   ============================================================ */
-function doEarthquake() {
-  if (!state.playing) return;
-
-  const targets = blocks.filter(() => Math.random() < 0.34);
-  for (const t of targets) {
-    const idx = blocks.indexOf(t);
-    if (idx >= 0) {
-      destroyBlock(t);
-      blocks.splice(idx, 1);
-    }
-  }
-
-  for (const b of blocks) {
-    b.body.wakeUp();
-    b.body.applyImpulse(new CANNON.Vec3(
-      (Math.random() - 0.5) * 8,
-      7 + Math.random() * 8,
-      (Math.random() - 0.5) * 8
-    ));
-  }
-
-  state.shakeTime = 0.8;
-  animeCameraShake(0.8, 1.1);
-
-  anime({
-    targets: btnQuake,
-    scale: [1, 1.35, 1],
-    rotate: [0, -8, 8, 0],
-    duration: 500,
-    easing: 'easeOutQuad'
-  });
-}
-
-function armShotgun() {
-  if (!state.playing) return;
-  state.shotgunArmed = true;
-  updateHUD(true);
-  anime({
-    targets: btnShotgun,
-    scale: [1, 1.25, 1],
-    duration: 380,
-    easing: 'easeOutQuad'
-  });
-}
-
-btnQuake.addEventListener('click', () => {
-  if (state.quake <= 0 || !state.playing) return;
-  state.quake--;
-  doEarthquake();
-  updateHUD(true);
-});
-
-btnShotgun.addEventListener('click', () => {
-  if (state.shotgun <= 0 || !state.playing) return;
-  if (state.shotgunArmed) return;
-  state.shotgun--;
-  armShotgun();
-});
-
-orbWrap.addEventListener('click', () => {
-  if (!state.playing) return;
-  cycleColor();
-  updateHUD(true);
-  animePulseOrb();
-});
-
-/* ============================================================
-   HUD  (anime.js animated counters)
-   ============================================================ */
-let hudPrev = { level: 1, balls: 0 };
-
-function updateHUD(animate) {
-  if (animate) {
-    anime({
-      targets: hudPrev,
-      level: state.level,
-      balls: state.ballsLeft,
-      duration: 420,
-      easing: 'easeOutQuad',
-      update: () => {
-        elLevel.textContent = Math.round(hudPrev.level);
-        elBalls.textContent = Math.round(hudPrev.balls);
-      }
-    });
-  } else {
-    elLevel.textContent = state.level;
-    elBalls.textContent = state.ballsLeft;
-    hudPrev.level = state.level;
-    hudPrev.balls = state.ballsLeft;
-  }
-
-  elQuake.textContent = state.quake;
-  elShotgun.textContent = state.shotgun;
-
-  btnQuake.disabled = state.quake <= 0;
-  btnShotgun.disabled = state.shotgun <= 0;
-  btnShotgun.classList.toggle('armed', state.shotgunArmed);
-
-  const c = COLOR_DEFS[state.currentColor] || COLOR_DEFS[0];
-  elOrb.style.background =
-    `radial-gradient(circle at 32% 28%, rgba(255,255,255,.85), ${c.css} 58%, rgba(0,0,0,.45))`;
-  elOrb.style.boxShadow = `0 0 22px ${c.css}aa`;
-  elOrbText.textContent = state.shotgunArmed ? 'Shotgun armed!' : 'Tap to switch';
-}
-
-function animePulseOrb() {
-  anime({
-    targets: elOrb,
-    scale: [1, 1.22, 1],
-    duration: 320,
-    easing: 'easeOutQuad'
-  });
-}
-
-function animeCameraShake(duration, intensity) {
-  const origX = camBase.x;
-  const origY = camBase.y;
-  anime({
-    targets: state,
-    shakeTime: [duration, 0],
-    duration: duration * 1000,
-    easing: 'linear'
-  });
-  // use anime for a quick impact wobble
-  anime({
-    targets: cannonGroup.position,
-    x: [CANNON_POS.x, CANNON_POS.x + 0.12 * intensity, CANNON_POS.x],
-    duration: duration * 1000,
-    easing: 'easeOutQuad'
-  });
-}
-
-/* ============================================================
-   OVERLAY  (anime.js transitions)
-   ============================================================ */
-let pendingAction = null;
-
-function showOverlay(title, text, btnText, action) {
-  ovTitle.innerHTML = title;
-  ovText.innerHTML = text;
-  ovBtn.textContent = btnText;
-  pendingAction = action;
-
-  overlay.classList.add('show');
-  overlay.style.opacity = '0';
-  panel.style.opacity = '0';
-
-  anime({
-    targets: overlay,
-    opacity: [0, 1],
-    duration: 280,
-    easing: 'easeOutQuad'
-  });
-  anime({
-    targets: panel,
-    opacity: [0, 1],
-    translateY: [12, 0],
-    scale: [0.97, 1],
-    duration: 420,
-    easing: 'easeOutBack'
-  });
-  anime({
-    targets: ovBtn,
-    scale: [0.9, 1],
-    duration: 500,
-    delay: 120,
-    easing: 'easeOutElastic(1, .6)'
-  });
-}
-
-function hideOverlay(cb) {
-  anime({
-    targets: panel,
-    opacity: [1, 0],
-    translateY: [0, -10],
-    scale: [1, 0.98],
-    duration: 240,
-    easing: 'easeInQuad'
-  });
-  anime({
-    targets: overlay,
-    opacity: [1, 0],
-    duration: 260,
-    delay: 60,
-    easing: 'easeInQuad',
-    complete: () => {
-      overlay.classList.remove('show');
-      overlay.style.opacity = '1';
-      if (cb) cb();
-    }
-  });
-}
-
-ovBtn.addEventListener('click', () => {
-  const a = pendingAction;
-  pendingAction = null;
-  hideOverlay(() => { if (a) a(); });
-});
-
-/* ============================================================
-   LEVEL FLOW
-   ============================================================ */
-function startLevel() {
-  buildLevel(state.level);
-
-  state.ballsLeft = 8 + Math.floor(state.level * 1.6);
-  state.endTimer = 0;
-  state.shotgunArmed = false;
-  state.playing = true;
-
-  const avail = getAvailableColors();
-  if (!avail.includes(state.currentColor) && avail.length) {
-    state.currentColor = avail[0];
-  }
-
-  hudPrev.level = state.level;
-  hudPrev.balls = state.ballsLeft;
-  updateHUD(false);
-
-  anime({
-    targets: cannonGroup.position,
-    z: [CANNON_POS.z + 2, CANNON_POS.z],
-    duration: 500,
-    easing: 'easeOutQuad'
-  });
-}
-
-function winLevel() {
-  state.playing = false;
-  state.level++;
-  state.quake   = Math.min(state.quake + 1, 3);
-  state.shotgun = Math.min(state.shotgun + 1, 3);
-  updateHUD(true);
-
-  showOverlay(
-    'LEVEL CLEARED!',
-    `Nice shooting! You cleared level <b>${state.level - 1}</b>.<br>
-     Power-ups restored — <b>+1</b> Earthquake and <b>+1</b> Shotgun.`,
-    'NEXT LEVEL',
-    () => startLevel()
-  );
-}
-
-function loseLevel() {
-  state.playing = false;
-  showOverlay(
-    'OUT OF BALLS',
-    `You ran out of balls on level <b>${state.level}</b>.<br>
-     Try aiming at a tower of the <b>same color</b> as your ball — and tap the orb to switch colors.`,
-    'TRY AGAIN',
-    () => {
-      state.quake = Math.max(state.quake, 1);
-      state.shotgun = Math.max(state.shotgun, 1);
-      startLevel();
-    }
-  );
-}
-
-/* ============================================================
-   COLLISION / HIT RESOLUTION
-   ============================================================ */
-function resolveHits() {
-  for (const bl of balls) {
-    const p = bl.body.position;
-    for (let j = blocks.length - 1; j >= 0; j--) {
-      const bk = blocks[j];
-      const q = bk.body.position;
-      const dx = p.x - q.x;
-      const dy = p.y - q.y;
-      const dz = p.z - q.z;
-      if (dx * dx + dy * dy + dz * dz > HIT_R2) continue;
-
-      if (bk.color === bl.color) {
-        destroyBlock(bk);
-        blocks.splice(j, 1);
-
-        bl.body.velocity.x *= 0.9;
-        bl.body.velocity.y *= 0.9;
-        bl.body.velocity.z *= 0.9;
-
-        // impact punch on camera
-        anime({
-          targets: state,
-          punch: [1, 0],
-          duration: 180,
-          easing: 'easeOutQuad'
-        });
-      }
-    }
-  }
-}
-
-/* ============================================================
-   MAIN UPDATE
-   ============================================================ */
-function updateAimDots() {
-  const dir = getAimDir();
-  const start = CANNON_POS.clone().addScaledVector(dir, 2.9);
-  const v = dir.clone().multiplyScalar(BALL_SPEED);
-  const show = state.playing && state.ballsLeft > 0;
-
-  for (let i = 0; i < aimDots.length; i++) {
-    const t = 0.05 + i * 0.05;
-    const p = start.clone().addScaledVector(v, t);
-    p.y -= 0.5 * GRAVITY * t * t;
-
-    const dot = aimDots[i];
-    dot.position.copy(p);
-    dot.visible = show && p.y > -0.4;
-    dot.scale.setScalar(Math.max(0.35, 1 - i / (aimDots.length * 1.5)));
-  }
-}
-
-function update(dt) {
-  if (state.playing) resolveHits();
-
-  world.step(1 / 120, dt, 5);
-
-  for (const b of blocks) {
-    b.mesh.position.copy(b.body.position);
-    b.mesh.quaternion.copy(b.body.quaternion);
-  }
-
-  for (let i = balls.length - 1; i >= 0; i--) {
-    const bl = balls[i];
-    bl.mesh.position.copy(bl.body.position);
-    bl.mesh.quaternion.copy(bl.body.quaternion);
-
-    bl.age += dt;
-    const v = bl.body.velocity;
-    const sp = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-    if (sp < 1.6) bl.slow += dt; else bl.slow = 0;
-
-    if (bl.age > 9 || bl.slow > 0.9 || bl.body.position.y < -8) {
-      world.removeBody(bl.body);
-      scene.remove(bl.mesh);
-      balls.splice(i, 1);
-    }
-  }
-
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.life += dt;
-    p.vel.y -= GRAVITY * dt;
-    p.mesh.position.addScaledVector(p.vel, dt);
-    p.mesh.rotation.x += p.rotX * dt;
-    p.mesh.rotation.y += p.rotY * dt;
-    if (p.life >= p.max) {
-      scene.remove(p.mesh);
-      particles.splice(i, 1);
-    }
-  }
-
-  updateCannonVisual();
-  updateAimDots();
-
-  if (state.playing) {
-    if (blocks.length === 0) {
-      winLevel();
-    } else if (state.ballsLeft === 0 && balls.length === 0) {
-      state.endTimer += dt;
-      if (state.endTimer > 1.0) loseLevel();
-    } else {
-      state.endTimer = 0;
-    }
-  }
-
-  // camera shake driven by state.shakeTime
-  const shake = state.shakeTime;
-  if (shake > 0) {
-    state.shakeTime = Math.max(0, shake - dt);
-    const k = shake * 1.6;
-    camera.position.set(
-      camBase.x + (Math.random() - 0.5) * k,
-      camBase.y + (Math.random() - 0.5) * k,
-      camBase.z + (Math.random() - 0.5) * k * 0.6
-    );
-  } else {
-    camera.position.lerp(camBase, Math.min(1, dt * 10));
-  }
-
-  // camera punch (zoom / kick)
-  const punch = state.punch;
-  if (punch > 0) {
-    camera.position.z -= punch * 0.5;
-    camera.position.y += punch * 0.12;
-  }
-
-  camera.lookAt(camLook);
-}
-
-/* ============================================================
-   INPUT
-   ============================================================ */
-let pointerDown = false;
-
-renderer.domElement.addEventListener('pointerdown', (e) => {
-  pointerDown = true;
-  updatePointer(e.clientX, e.clientY);
-});
-
-window.addEventListener('pointermove', (e) => {
-  if (e.target !== renderer.domElement && !pointerDown) return;
-  updatePointer(e.clientX, e.clientY);
-}, { passive: true });
-
-window.addEventListener('pointerup', (e) => {
-  if (!pointerDown) return;
-  pointerDown = false;
-  if (e.target === renderer.domElement) {
-    updatePointer(e.clientX, e.clientY);
-    shoot();
-  }
-});
-
-window.addEventListener('pointercancel', () => { pointerDown = false; });
-
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'Space') {
-    e.preventDefault();
-    if (state.playing) shoot();
-  }
-  if (e.code === 'KeyQ' && state.playing && state.quake > 0) {
-    state.quake--; doEarthquake(); updateHUD(true);
-  }
-  if (e.code === 'KeyE' && state.playing && state.shotgun > 0 && !state.shotgunArmed) {
-    state.shotgun--; armShotgun(); updateHUD(true);
-  }
-});
-
-/* ============================================================
-   RESIZE
-   ============================================================ */
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-});
-
-/* ============================================================
-   LOOP
-   ============================================================ */
-let lastTime = performance.now();
-
-function animate(now) {
-  requestAnimationFrame(animate);
-  let dt = (now - lastTime) / 1000;
-  lastTime = now;
-  if (!isFinite(dt) || dt < 0) dt = 0;
-  dt = Math.min(dt, 0.05);
-
-  update(dt);
-  renderer.render(scene, camera);
-}
-
-/* ============================================================
-   BOOT
-   ============================================================ */
-updateCannonVisual();
-updateHUD(false);
-
-showOverlay(
-  'TOWER CRASH 3D',
-  `Aim with the mouse, click to fire.<br>
-   <b>Match the colors</b> to smash the towers — everything else bounces off.<br>
-   Tap the orb at the bottom to switch ball color.<br>
-   Use <b>🌋 Earthquake</b> and <b>💥 Shotgun</b> when you get stuck.`,
-  'PLAY',
-  () => {
-    state.level = 1;
-    state.quake = 1;
-    state.shotgun = 1;
-    startLevel();
-  }
-);
-
-requestAnimationFrame(animate);
-</script>
+</head>
+<body>
+
+<!-- ============================================================
+     SCENE HOST — Three.js canvas is appended here by js/game.js
+     ============================================================ -->
+<div id="scene" aria-hidden="true"></div>
+
+<!-- Sky + ocean are pure CSS layers behind the canvas glow -->
+<div id="skyWash" aria-hidden="true"></div>
+<div id="oceanWash" aria-hidden="true"></div>
+
+<!-- ============================================================
+     HUD
+     ============================================================ -->
+<div id="hud">
+
+  <!-- ---------- TOP BAR ---------- -->
+  <div class="topbar">
+
+    <!-- Coins (top-left) -->
+    <div class="coinChip" id="hudCoinsWrap" role="status" aria-live="polite" aria-label="Coins">
+      <svg class="coinIcon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="#ffcc33" />
+        <circle cx="12" cy="12" r="10" fill="none" stroke="#c78f00" stroke-width="1.6" />
+        <circle cx="12" cy="12" r="6.2" fill="none" stroke="#e8a900" stroke-width="1.4" />
+        <text x="12" y="16.4" text-anchor="middle" font-family="Arial, sans-serif"
+              font-size="9" font-weight="700" fill="#8a5f00">C</text>
+      </svg>
+      <span class="coinValue" id="hudCoins">0</span>
+    </div>
+
+    <!-- Level + progress (top-center) -->
+    <div class="levelBlock" id="hudLevelWrap">
+      <div class="levelLabels">
+        <span class="levelNow" id="hudLevel">1</span>
+        <span class="levelNext" id="hudLevelNext">2</span>
+      </div>
+      <div class="levelTrack" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="0" aria-label="Level progress" id="hudProgress">
+        <div class="levelFill" id="hudProgressFill"></div>
+        <div class="levelNotch" id="hudProgressNotch"></div>
+      </div>
+    </div>
+
+    <!-- Shop / cart (top-right) -->
+    <button class="iconBtn" id="btnShop" type="button" aria-label="Shop" title="Shop">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 4h2.2l1.1 2.4h13.3l-2.2 8.1H7.6L5.7 8.5" fill="none"
+              stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="9.2" cy="19.2" r="1.7" fill="currentColor"/>
+        <circle cx="17.3" cy="19.2" r="1.7" fill="currentColor"/>
+      </svg>
+    </button>
+
+  </div>
+
+  <!-- ---------- RIGHT-SIDE POWER-UPS ---------- -->
+  <div class="powerRail" id="powerRail">
+
+    <!-- Multiball -->
+    <button class="powerCard" id="btnMultiball" type="button" aria-label="Multiball">
+      <span class="powerIcon" aria-hidden="true">
+        <svg viewBox="0 0 32 32">
+          <circle cx="10" cy="12" r="4.4" fill="#ffffff" opacity=".95"/>
+          <circle cx="21" cy="10.5" r="4.4" fill="#ffffff" opacity=".8"/>
+          <circle cx="15.5" cy="21" r="4.4" fill="#ffffff" opacity=".7"/>
+          <circle cx="25" cy="20.5" r="3" fill="#ffffff" opacity=".55"/>
+        </svg>
+      </span>
+      <span class="powerLabel">Multiball</span>
+      <span class="powerPrice" id="btnMultiballPrice">
+        <svg class="miniCoin" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="#ffcc33" stroke="#c78f00" stroke-width="1.6"/>
+        </svg>
+        <span class="priceNum" id="priceMultiball">25</span>
+      </span>
+      <span class="powerBadge" id="badgeMultiball">0</span>
+    </button>
+
+    <!-- Earthquake -->
+    <button class="powerCard" id="btnEarthquake" type="button" aria-label="Earthquake">
+      <span class="powerIcon" aria-hidden="true">
+        <svg viewBox="0 0 32 32">
+          <path d="M16 3.5 19.6 12l8.9 1.1-6.6 6.1 1.8 8.8L16 23.6 8.3 28l1.8-8.8-6.6-6.1L12.4 12z"
+                fill="#ffffff" opacity=".95"/>
+        </svg>
+      </span>
+      <span class="powerLabel">Earthquake</span>
+      <span class="powerPrice" id="btnEarthquakePrice">
+        <svg class="miniCoin" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="#ffcc33" stroke="#c78f00" stroke-width="1.6"/>
+        </svg>
+        <span class="priceNum" id="priceEarthquake">50</span>
+      </span>
+      <span class="powerBadge" id="badgeEarthquake">0</span>
+    </button>
+
+  </div>
+
+  <!-- ---------- BOTTOM-LEFT: ball counter fallback (visually hidden; ball shows count in 3D) ---------- -->
+  <div class="ballChip" id="hudBallsWrap" role="status" aria-live="polite" aria-label="Balls remaining">
+    <span class="ballDot" id="hudBallDot"></span>
+    <span class="ballValue" id="hudBalls">0</span>
+  </div>
+
+  <!-- ---------- BOTTOM-CENTER: hint ---------- -->
+  <div class="hint" id="hint">Move to aim · Tap to shoot</div>
+
+</div>
+
+<!-- ============================================================
+     OVERLAY (intro / win / lose)
+     ============================================================ -->
+<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
+  <div class="panel" id="panel">
+    <h1 class="panelTitle" id="ovTitle">TOWER CRASH 3D</h1>
+    <p class="panelText" id="ovText">
+      Aim with the mouse, tap to fire.<br>
+      <b>Match the colors</b> to smash the tower — everything else bounces off.
+    </p>
+    <button class="panelBtn" id="ovBtn" type="button">PLAY</button>
+  </div>
+</div>
+
+<!-- Entry module: imports config.js + effects.js itself -->
+<script type="module" src="./js/game.js"></script>
 </body>
 </html>

@@ -5,3 +5,5 @@ services:
     branch: main
     buildCommand: ""
     staticPublishPath: ./
+    autoDeploy: true
+    envVars: []
