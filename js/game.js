@@ -1,7 +1,8 @@
 /* ============================================================
    TOWER CRASH 3D — game.js
-   Entry module: builds the Three.js scene, the cannon-es world,
-   and drives gameplay. Imports config.js and effects.js.
+   Far-back over-the-shoulder camera, ONE tall narrow tower,
+   small cannon with a big muzzle ball showing the ball count.
+   Entry module: builds scene + physics, then runs gameplay.
    ============================================================ */
 
 import * as THREE from 'three';
@@ -9,6 +10,7 @@ import * as CANNON from 'cannon-es';
 import {
   COLORS,
   BALL_RADIUS,
+  MUZZLE_BALL_RADIUS,
   BALL_SPEED,
   BALL_MASS,
   BALL_LIFE,
@@ -55,6 +57,13 @@ import {
   CANNON_POSITION,
   CANNON_BALL_SPAWN,
   CANNON_BASE_Y,
+  CANNON_BARREL_RADIUS_TOP,
+  CANNON_BARREL_RADIUS_BOTTOM,
+  CANNON_BARREL_LENGTH,
+  CANNON_BASE_RADIUS_TOP,
+  CANNON_BASE_RADIUS_BOTTOM,
+  CANNON_BASE_HEIGHT,
+  MUZZLE_LABEL_SCALE,
   BLOCK_SIZE,
   BLOCK_VISUAL_SCALE,
   TOWER_HEIGHT,
@@ -63,17 +72,17 @@ import {
   TOWER_X,
   TOWER_Z,
   TOWER_BLOCK_MASS,
+  PEDESTAL_RADIUS_TOP,
+  PEDESTAL_RADIUS_BOTTOM,
   LEVEL_MAX,
   ballsForLevel,
   colorsForLevel,
   towerHeightForLevel,
-  BASE_POINTS_PER_BLOCK,
   COMBO_WINDOW,
   COMBO_MULTIPLIERS,
   COINS_PER_BLOCK,
   COINS_PER_LEVEL_CLEAR,
   STARTING_COINS,
-  COINS_PER_UNUSED_BALL,
   POWERUP_MULTIBALL,
   POWERUP_EARTHQUAKE,
   SHOTGUN_SPREAD_COUNT,
@@ -81,27 +90,40 @@ import {
   ARENA_GRID_SIZE,
   ARENA_GRID_DIVS,
   ARENA_RING_RADIUS,
-  ARENA_PILLAR_COUNT,
-  ARENA_PILLAR_RADIUS,
-  ARENA_PILLAR_HEIGHT,
+  LANE_STRIP_LENGTH,
+  LANE_STRIP_WIDTH,
+  SKY_TOP_HEX,
+  SKY_HORIZON_HEX,
+  OCEAN_HEX,
   FOG_NEAR,
   FOG_FAR,
+  FOG_COLOR_HEX,
   UI_HUD_COUNT_MS,
   UI_PULSE_MS,
-  UI_BUTTON_FEEDBACK_MS,
-  UI_OVERLAY_IN_MS,
-  UI_OVERLAY_OUT_MS,
   UI_BALL_SPAWN_MS,
   FX_PARTICLE_COUNT,
   FX_PARTICLE_LIFE_MIN,
   FX_PARTICLE_LIFE_MAX,
   FX_PARTICLE_GEO_SIZE,
   FX_PARTICLE_GRAVITY,
-  FX_SHAKE_DURATION,
-  FX_SHAKE_INTENSITY,
-  FX_PUNCH_MS,
-  FX_PUNCH_Z_OFFSET,
-  FX_PUNCH_Y_OFFSET,
+  FX_PARTICLE_SPEED_XZ,
+  FX_PARTICLE_SPEED_Y,
+  FX_TRAIL_ENABLED,
+  FX_TRAIL_COUNT,
+  FX_TRAIL_SPAWN_MS,
+  FX_TRAIL_FADE_MS,
+  FX_TRAIL_START_SCALE,
+  FX_TRAIL_END_SCALE,
+  FX_TRAIL_START_OPACITY,
+  FX_WOBBLE_ENABLED,
+  FX_WOBBLE_MS,
+  FX_WOBBLE_ANGLE,
+  FX_WOBBLE_RADIUS,
+  FX_CONFETTI_COUNT,
+  FX_CONFETTI_MS,
+  FX_CONFETTI_GRAVITY,
+  FX_AIM_DOT_STAGGER_MS,
+  FX_AIM_DOT_POP_MS,
   UI_STRINGS,
   MAX_PARTICLES,
   MAX_BALLS,
@@ -116,38 +138,42 @@ import {
   pulse,
   buttonFeedback,
   overlayIn,
-  overlayOut
+  overlayOut,
+  shockwave,
+  ballTrail,
+  wobble,
+  confetti
 } from './effects.js';
 
 /* ============================================================
    DOM REFERENCES
    ============================================================ */
 const dom = {
-  sceneHost:      document.getElementById('scene'),
-  coins:          document.getElementById('hudCoins'),
-  coinsWrap:      document.getElementById('hudCoinsWrap'),
-  level:          document.getElementById('hudLevel'),
-  levelNext:      document.getElementById('hudLevelNext'),
-  progress:       document.getElementById('hudProgress'),
-  progressFill:   document.getElementById('hudProgressFill'),
-  progressNotch:  document.getElementById('hudProgressNotch'),
-  levelWrap:      document.getElementById('hudLevelWrap'),
-  btnShop:        document.getElementById('btnShop'),
-  btnMultiball:   document.getElementById('btnMultiball'),
-  btnEarthquake:  document.getElementById('btnEarthquake'),
-  priceMultiball: document.getElementById('priceMultiball'),
-  priceEarthquake:document.getElementById('priceEarthquake'),
-  badgeMultiball: document.getElementById('badgeMultiball'),
-  badgeEarthquake:document.getElementById('badgeEarthquake'),
-  balls:          document.getElementById('hudBalls'),
-  ballDot:        document.getElementById('hudBallDot'),
-  ballsWrap:      document.getElementById('hudBallsWrap'),
-  hint:           document.getElementById('hint'),
-  overlay:        document.getElementById('overlay'),
-  panel:          document.getElementById('panel'),
-  ovTitle:        document.getElementById('ovTitle'),
-  ovText:         document.getElementById('ovText'),
-  ovBtn:          document.getElementById('ovBtn')
+  sceneHost:       document.getElementById('scene'),
+  coins:           document.getElementById('hudCoins'),
+  coinsWrap:       document.getElementById('hudCoinsWrap'),
+  level:           document.getElementById('hudLevel'),
+  levelNext:       document.getElementById('hudLevelNext'),
+  progress:        document.getElementById('hudProgress'),
+  progressFill:    document.getElementById('hudProgressFill'),
+  progressNotch:   document.getElementById('hudProgressNotch'),
+  levelWrap:       document.getElementById('hudLevelWrap'),
+  btnShop:         document.getElementById('btnShop'),
+  btnMultiball:    document.getElementById('btnMultiball'),
+  btnEarthquake:   document.getElementById('btnEarthquake'),
+  priceMultiball:  document.getElementById('priceMultiball'),
+  priceEarthquake: document.getElementById('priceEarthquake'),
+  badgeMultiball:  document.getElementById('badgeMultiball'),
+  badgeEarthquake: document.getElementById('badgeEarthquake'),
+  balls:           document.getElementById('hudBalls'),
+  ballDot:         document.getElementById('hudBallDot'),
+  ballsWrap:       document.getElementById('hudBallsWrap'),
+  hint:            document.getElementById('hint'),
+  overlay:         document.getElementById('overlay'),
+  panel:           document.getElementById('panel'),
+  ovTitle:         document.getElementById('ovTitle'),
+  ovText:          document.getElementById('ovText'),
+  ovBtn:           document.getElementById('ovBtn')
 };
 
 /* ============================================================
@@ -163,12 +189,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.08;
 renderer.setClearColor(0x000000, 0);
 dom.sceneHost.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x9ec9f0, FOG_NEAR, FOG_FAR);
+scene.fog = new THREE.Fog(FOG_COLOR_HEX, FOG_NEAR, FOG_FAR);
 
 const camera = new THREE.PerspectiveCamera(
   CAMERA_FOV,
@@ -183,55 +209,103 @@ camera.position.copy(camBase);
 camera.lookAt(camLook);
 
 /* ============================================================
+   SKY DOME  (bright blue sky → ocean-blue horizon)
+   ============================================================ */
+function makeSkyTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0.00, '#9fd9ff');
+  grad.addColorStop(0.30, '#c8ecff');
+  grad.addColorStop(0.55, '#8ccdf3');
+  grad.addColorStop(0.78, '#5fb6f2');
+  grad.addColorStop(1.00, '#2f8fe0');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 512);
+
+  /* Soft cloud band */
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 14; i++) {
+    const y = 40 + Math.random() * 180;
+    const x = Math.random() * 64;
+    const r = 8 + Math.random() * 22;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const skyDome = new THREE.Mesh(
+  new THREE.SphereGeometry(180, 32, 20),
+  new THREE.MeshBasicMaterial({
+    map: makeSkyTexture(),
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false
+  })
+);
+scene.add(skyDome);
+
+/* ============================================================
    LIGHTS
    ============================================================ */
-const hemi = new THREE.HemisphereLight(0xffffff, 0x9ec9f0, 1.05);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8fc4ee, 1.15);
 scene.add(hemi);
 
-const sun = new THREE.DirectionalLight(0xfff6d8, 2.2);
-sun.position.set(14, 26, 18);
+const sun = new THREE.DirectionalLight(0xfff6d8, 2.25);
+sun.position.set(14, 28, 20);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.left   = -30;
 sun.shadow.camera.right  =  30;
-sun.shadow.camera.top    =  30;
-sun.shadow.camera.bottom = -30;
+sun.shadow.camera.top    =  40;
+sun.shadow.camera.bottom = -20;
 sun.shadow.camera.near   = 1;
-sun.shadow.camera.far    = 110;
+sun.shadow.camera.far    = 120;
 sun.shadow.bias = -0.0008;
 scene.add(sun);
 
-const rim = new THREE.DirectionalLight(0x8ec6ff, 1.15);
-rim.position.set(-16, 12, -22);
+const rim = new THREE.DirectionalLight(0xbfe3ff, 1.05);
+rim.position.set(-18, 14, -24);
 scene.add(rim);
 
-const fill = new THREE.PointLight(0xfff2c8, 0.55, 60, 2);
-fill.position.set(0, 9, 14);
+const fill = new THREE.PointLight(0xfff2c8, 0.55, 70, 2);
+fill.position.set(0, 10, 16);
 scene.add(fill);
 
 /* ============================================================
-   ARENA — ground, grid, ring, pillars
+   ARENA — ocean floor, lane strip, ring
    ============================================================ */
 const groundGeo = new THREE.CircleGeometry(ARENA_GROUND_RADIUS, 96);
 groundGeo.rotateX(-Math.PI / 2);
 const groundMat = new THREE.MeshStandardMaterial({
-  color: 0x2f8fe0,
-  roughness: 0.92,
-  metalness: 0.08
+  color: OCEAN_HEX,
+  roughness: 0.9,
+  metalness: 0.1
 });
 const groundMesh = new THREE.Mesh(groundGeo, groundMat);
 groundMesh.receiveShadow = true;
 groundMesh.position.y = 0;
 scene.add(groundMesh);
 
-const grid = new THREE.GridHelper(ARENA_GRID_SIZE, ARENA_GRID_DIVS, 0xbfe3ff, 0x87c4f2);
-grid.position.y = 0.012;
-grid.material.opacity = 0.42;
+/* Subtle grid on the ocean floor for depth */
+const grid = new THREE.GridHelper(ARENA_GRID_SIZE, ARENA_GRID_DIVS, 0xbfe3ff, 0x7ac0f0);
+grid.position.y = 0.015;
+grid.material.opacity = 0.22;
 grid.material.transparent = true;
 scene.add(grid);
 
+/* Bright ring marking the arena */
 const ring = new THREE.Mesh(
-  new THREE.TorusGeometry(ARENA_RING_RADIUS, 0.16, 12, 128),
+  new THREE.TorusGeometry(ARENA_RING_RADIUS, 0.12, 12, 128),
   new THREE.MeshStandardMaterial({
     color: 0xffffff,
     emissive: 0xbfe3ff,
@@ -241,27 +315,21 @@ const ring = new THREE.Mesh(
   })
 );
 ring.rotation.x = Math.PI / 2;
-ring.position.y = 0.06;
+ring.position.y = 0.05;
 scene.add(ring);
 
-const pillarMat = new THREE.MeshStandardMaterial({
-  color: 0x8fc4ee,
-  roughness: 0.72,
-  metalness: 0.18
+/* Lane strip running from cannon to tower — subtle direction guide */
+const laneGeo = new THREE.PlaneGeometry(LANE_STRIP_WIDTH, LANE_STRIP_LENGTH);
+laneGeo.rotateX(-Math.PI / 2);
+const laneMat = new THREE.MeshBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.10,
+  depthWrite: false
 });
-const pillarGeo = new THREE.BoxGeometry(1.1, ARENA_PILLAR_HEIGHT, 1.1);
-for (let i = 0; i < ARENA_PILLAR_COUNT; i++) {
-  const a = (i / ARENA_PILLAR_COUNT) * Math.PI * 2;
-  const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-  pillar.position.set(
-    Math.cos(a) * ARENA_PILLAR_RADIUS,
-    ARENA_PILLAR_HEIGHT / 2,
-    Math.sin(a) * ARENA_PILLAR_RADIUS
-  );
-  pillar.castShadow = true;
-  pillar.receiveShadow = true;
-  scene.add(pillar);
-}
+const laneStrip = new THREE.Mesh(laneGeo, laneMat);
+laneStrip.position.set(0, 0.02, (CANNON_POSITION.z + TOWER_Z) / 2);
+scene.add(laneStrip);
 
 /* ============================================================
    PHYSICS WORLD
@@ -312,27 +380,28 @@ const blockGeo = new THREE.BoxGeometry(
   BLOCK_SIZE * BLOCK_VISUAL_SCALE
 );
 const ballGeo = new THREE.SphereGeometry(BALL_RADIUS, 24, 18);
+const muzzleBallGeo = new THREE.SphereGeometry(MUZZLE_BALL_RADIUS, 32, 24);
 
 const blockMats = COLORS.map(c => new THREE.MeshStandardMaterial({
   color: c.hex,
-  roughness: 0.38,
+  roughness: 0.36,
   metalness: 0.14,
   emissive: c.hex,
-  emissiveIntensity: 0.22,
+  emissiveIntensity: 0.26,
   flatShading: true
 }));
 
 const ballMats = COLORS.map(c => new THREE.MeshStandardMaterial({
   color: c.hex,
-  roughness: 0.22,
-  metalness: 0.28,
+  roughness: 0.20,
+  metalness: 0.30,
   emissive: c.hex,
-  emissiveIntensity: 0.55,
+  emissiveIntensity: 0.62,
   flatShading: true
 }));
 
 /* ============================================================
-   CANNON MESH + MUZZLE BALL + BALL-COUNT LABEL
+   CANNON — small barrel at bottom-center + BIG muzzle ball
    ============================================================ */
 const cannonGroup = new THREE.Group();
 const cannonBase = new THREE.Vector3(
@@ -343,15 +412,21 @@ const cannonBase = new THREE.Vector3(
 cannonGroup.position.copy(cannonBase);
 scene.add(cannonGroup);
 
-const barrelGeo = new THREE.CylinderGeometry(0.5, 0.72, 2.4, 22);
+/* Barrel (small) */
+const barrelGeo = new THREE.CylinderGeometry(
+  CANNON_BARREL_RADIUS_TOP,
+  CANNON_BARREL_RADIUS_BOTTOM,
+  CANNON_BARREL_LENGTH,
+  20
+);
 barrelGeo.rotateX(Math.PI / 2);
-barrelGeo.translate(0, 0, 1.2);
+barrelGeo.translate(0, 0, CANNON_BARREL_LENGTH / 2);
 
 const barrelMesh = new THREE.Mesh(
   barrelGeo,
   new THREE.MeshStandardMaterial({
-    color: 0x9aa8bc,
-    roughness: 0.32,
+    color: 0x8a97ab,
+    roughness: 0.34,
     metalness: 0.82,
     flatShading: true
   })
@@ -359,19 +434,26 @@ const barrelMesh = new THREE.Mesh(
 barrelMesh.castShadow = true;
 cannonGroup.add(barrelMesh);
 
+/* Barrel mouth ring */
 const barrelMouth = new THREE.Mesh(
-  new THREE.TorusGeometry(0.46, 0.085, 8, 22),
+  new THREE.TorusGeometry(CANNON_BARREL_RADIUS_TOP * 1.05, 0.055, 8, 22),
   new THREE.MeshStandardMaterial({
     color: 0x3a4a6a,
     roughness: 0.4,
     metalness: 0.72
   })
 );
-barrelMouth.position.z = 2.4;
+barrelMouth.position.z = CANNON_BARREL_LENGTH;
 cannonGroup.add(barrelMouth);
 
+/* Base (small) */
 const baseMesh = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.95, 1.1, 0.7, 22),
+  new THREE.CylinderGeometry(
+    CANNON_BASE_RADIUS_TOP,
+    CANNON_BASE_RADIUS_BOTTOM,
+    CANNON_BASE_HEIGHT,
+    20
+  ),
   new THREE.MeshStandardMaterial({
     color: 0x4a5a7a,
     roughness: 0.7,
@@ -383,20 +465,19 @@ baseMesh.castShadow = true;
 baseMesh.receiveShadow = true;
 cannonGroup.add(baseMesh);
 
-/* Muzzle ball preview group */
+/* Muzzle ball group — floats just past the barrel mouth */
 const muzzleBallGroup = new THREE.Group();
 scene.add(muzzleBallGroup);
 
 const muzzleBallMat = ballMats[0].clone();
-const muzzleBall = new THREE.Mesh(ballGeo, muzzleBallMat);
-muzzleBall.scale.setScalar(1.15);
+const muzzleBall = new THREE.Mesh(muzzleBallGeo, muzzleBallMat);
 muzzleBall.castShadow = true;
 muzzleBallGroup.add(muzzleBall);
 
-/* Canvas-based count label rendered as a Sprite above the muzzle ball */
+/* Canvas-based ball-count label rendered as a camera-facing sprite */
 const labelCanvas = document.createElement('canvas');
-labelCanvas.width = 128;
-labelCanvas.height = 128;
+labelCanvas.width = 256;
+labelCanvas.height = 256;
 const labelCtx = labelCanvas.getContext('2d');
 const labelTexture = new THREE.CanvasTexture(labelCanvas);
 labelTexture.colorSpace = THREE.SRGBColorSpace;
@@ -408,22 +489,22 @@ const labelMat = new THREE.SpriteMaterial({
   fog: false
 });
 const labelSprite = new THREE.Sprite(labelMat);
-labelSprite.scale.set(1.15, 1.15, 1);
+labelSprite.scale.set(MUZZLE_LABEL_SCALE, MUZZLE_LABEL_SCALE, 1);
 labelSprite.renderOrder = 999;
-labelSprite.position.set(0, BALL_RADIUS * 1.9, 0);
+labelSprite.position.set(0, MUZZLE_BALL_RADIUS * 0.05, MUZZLE_BALL_RADIUS * 0.95);
 muzzleBallGroup.add(labelSprite);
 
 function drawBallCount(num) {
-  labelCtx.clearRect(0, 0, 128, 128);
+  labelCtx.clearRect(0, 0, 256, 256);
   const text = String(num);
-  labelCtx.font = '900 84px Arial, sans-serif';
+  labelCtx.font = '900 148px Arial, sans-serif';
   labelCtx.textAlign = 'center';
   labelCtx.textBaseline = 'middle';
-  labelCtx.lineWidth = 14;
-  labelCtx.strokeStyle = 'rgba(10, 30, 60, 0.9)';
-  labelCtx.strokeText(text, 64, 70);
+  labelCtx.lineWidth = 26;
+  labelCtx.strokeStyle = 'rgba(10, 30, 60, 0.92)';
+  labelCtx.strokeText(text, 128, 138);
   labelCtx.fillStyle = '#ffffff';
-  labelCtx.fillText(text, 64, 70);
+  labelCtx.fillText(text, 128, 138);
   labelTexture.needsUpdate = true;
 }
 
@@ -431,16 +512,17 @@ function drawBallCount(num) {
    AIM DOTS
    ============================================================ */
 const aimDots = [];
-const dotGeo = new THREE.SphereGeometry(0.1, 8, 6);
+const dotGeo = new THREE.SphereGeometry(0.09, 8, 6);
 const dotMat = new THREE.MeshBasicMaterial({
   color: 0xffffff,
   transparent: true,
-  opacity: 0.58,
+  opacity: 0.62,
   depthWrite: false
 });
 for (let i = 0; i < AIM_DOT_COUNT; i++) {
   const d = new THREE.Mesh(dotGeo, dotMat);
   d.visible = false;
+  d.scale.setScalar(0.001);
   scene.add(d);
   aimDots.push(d);
 }
@@ -451,6 +533,7 @@ for (let i = 0; i < AIM_DOT_COUNT; i++) {
 let blocks    = [];
 let balls     = [];
 let particles = [];
+let trails    = [];
 let pedestals = [];
 
 const particleGeo = new THREE.BoxGeometry(
@@ -479,6 +562,7 @@ const state = {
   endTimer: 0,
   shakeTime: 0,
   punchAmount: 0,
+  fovPunch: 0,
   pendingAction: null
 };
 
@@ -513,10 +597,10 @@ function updateCannonVisual() {
 
 function updateMuzzleBall() {
   const dir = getAimDir();
-  const pos = cannonBase.clone().addScaledVector(dir, CANNON_BALL_SPAWN);
+  const pos = cannonBase.clone().addScaledVector(dir, CANNON_BALL_SPAWN + MUZZLE_BALL_RADIUS * 0.75);
   muzzleBallGroup.position.copy(pos);
   muzzleBallGroup.visible = state.ballsLeft > 0;
-  muzzleBall.rotation.y += 0.015;
+  muzzleBall.rotation.y += 0.012;
 }
 
 function updateBallColorVisual() {
@@ -524,7 +608,7 @@ function updateBallColorVisual() {
   if (!c) return;
   muzzleBallMat.color.setHex(c.hex);
   muzzleBallMat.emissive.setHex(c.hex);
-  muzzleBallMat.emissiveIntensity = 0.55;
+  muzzleBallMat.emissiveIntensity = 0.62;
   if (dom.ballDot) {
     dom.ballDot.style.background = c.css;
     dom.ballDot.style.boxShadow = `0 0 12px ${c.css}`;
@@ -542,12 +626,8 @@ function shuffle(arr) {
   return arr;
 }
 
-function clamp(v, a, b) {
-  return v < a ? a : v > b ? b : v;
-}
-
 /* ============================================================
-   TOWER BUILDING
+   TOWER — single tall narrow column, tightly stacked
    ============================================================ */
 function addBlock(x, y, z, colorIdx) {
   const half = BLOCK_SIZE / 2;
@@ -568,7 +648,7 @@ function addBlock(x, y, z, colorIdx) {
   mesh.receiveShadow = true;
   scene.add(mesh);
 
-  blocks.push({ mesh, body, color: colorIdx });
+  blocks.push({ mesh, body, color: colorIdx, wobbleOffset: 0 });
 }
 
 function clearField() {
@@ -583,12 +663,16 @@ function clearField() {
 
   for (const bl of balls) {
     scene.remove(bl.mesh);
-    world.removeBody(bl.body);
+    if (bl.body) world.removeBody(bl.body);
+    if (bl.trailGroup) scene.remove(bl.trailGroup);
   }
   balls.length = 0;
 
   for (const pt of particles) scene.remove(pt.mesh);
   particles.length = 0;
+
+  for (const t of trails) scene.remove(t.mesh);
+  trails.length = 0;
 }
 
 function buildTower(level) {
@@ -602,12 +686,17 @@ function buildTower(level) {
   const baseZ = TOWER_Z;
   const baseY = TOWER_STAND_ELEV;
 
-  /* Pedestal (visual stand under the column) */
-  const pedGeo = new THREE.CylinderGeometry(1.35, 1.65, TOWER_STAND_ELEV, 24);
+  /* Pedestal under the column */
+  const pedGeo = new THREE.CylinderGeometry(
+    PEDESTAL_RADIUS_TOP,
+    PEDESTAL_RADIUS_BOTTOM,
+    TOWER_STAND_ELEV,
+    26
+  );
   const pedMat = new THREE.MeshStandardMaterial({
-    color: 0x5a7aa8,
-    roughness: 0.6,
-    metalness: 0.35
+    color: 0x4a6a9a,
+    roughness: 0.55,
+    metalness: 0.4
   });
   const pedestal = new THREE.Mesh(pedGeo, pedMat);
   pedestal.position.set(baseX, TOWER_STAND_ELEV / 2, baseZ);
@@ -616,13 +705,11 @@ function buildTower(level) {
   scene.add(pedestal);
   pedestals.push(pedestal);
 
-  /* Single tall narrow column with slight per-block jitter */
+  /* Tightly stacked single column */
   for (let i = 0; i < height; i++) {
     const colorIdx = palette[i % palette.length];
-    const jx = (Math.random() - 0.5) * TOWER_COLUMN_OFFSET * 2;
-    const jz = (Math.random() - 0.5) * TOWER_COLUMN_OFFSET * 2;
     const y = baseY + BLOCK_SIZE / 2 + i * BLOCK_SIZE + 0.001;
-    addBlock(baseX + jx, y, baseZ + jz, colorIdx);
+    addBlock(baseX, y, baseZ, colorIdx);
   }
 
   state.blocksTotal = blocks.length;
@@ -638,7 +725,7 @@ function buildTower(level) {
 function spawnBall(dir, colorIdx) {
   if (balls.length >= MAX_BALLS) return;
 
-  const start = cannonBase.clone().addScaledVector(dir, CANNON_BALL_SPAWN);
+  const start = cannonBase.clone().addScaledVector(dir, CANNON_BALL_SPAWN + MUZZLE_BALL_RADIUS * 0.75);
 
   const body = new CANNON.Body({
     mass: BALL_MASS,
@@ -663,12 +750,17 @@ function spawnBall(dir, colorIdx) {
 
   pulse(mesh, 1, UI_BALL_SPAWN_MS);
 
+  const trailGroup = FX_TRAIL_ENABLED ? new THREE.Group() : null;
+  if (trailGroup) scene.add(trailGroup);
+
   balls.push({
     mesh,
     body,
     color: colorIdx,
     age: 0,
-    slow: 0
+    slow: 0,
+    trailGroup,
+    trailTimer: 0
   });
 }
 
@@ -694,6 +786,8 @@ function registerBlockDestroy(colorIdx) {
     if (dom.coins) dom.coins.textContent = Math.round(state.animCoins);
   });
 
+  pulse(dom.coinsWrap, 1.14, UI_PULSE_MS);
+
   if (state.combo >= 1) showCombo(state.combo);
 }
 
@@ -714,18 +808,20 @@ function showCombo(comboLevel) {
 }
 
 /* ============================================================
-   DESTRUCTION + PARTICLES
+   DESTRUCTION + EFFECTS
    ============================================================ */
 function spawnBurst(pos, colorIdx) {
   const group = [];
   const count = Math.min(FX_PARTICLE_COUNT, MAX_PARTICLES - particles.length);
+
   for (let i = 0; i < count; i++) {
     const m = new THREE.Mesh(particleGeo, particleMats[colorIdx]);
     m.position.copy(pos);
-    m.position.x += (Math.random() - 0.5) * 0.3;
-    m.position.y += (Math.random() - 0.5) * 0.3;
-    m.position.z += (Math.random() - 0.5) * 0.3;
-    m.scale.setScalar(0.6 + Math.random() * 0.9);
+    m.position.x += (Math.random() - 0.5) * 0.35;
+    m.position.y += (Math.random() - 0.5) * 0.35;
+    m.position.z += (Math.random() - 0.5) * 0.35;
+    m.scale.setScalar(0.65 + Math.random() * 0.9);
+    m.castShadow = false;
     scene.add(m);
 
     const life = FX_PARTICLE_LIFE_MIN +
@@ -734,18 +830,20 @@ function spawnBurst(pos, colorIdx) {
     particles.push({
       mesh: m,
       vel: new THREE.Vector3(
-        (Math.random() - 0.5) * 10,
-        Math.random() * 9 + 2,
-        (Math.random() - 0.5) * 10
+        (Math.random() - 0.5) * FX_PARTICLE_SPEED_XZ,
+        Math.random() * FX_PARTICLE_SPEED_Y + 2,
+        (Math.random() - 0.5) * FX_PARTICLE_SPEED_XZ
       ),
       life: 0,
       max: life,
-      rotX: (Math.random() - 0.5) * 16,
-      rotY: (Math.random() - 0.5) * 16
+      rotX: (Math.random() - 0.5) * 18,
+      rotY: (Math.random() - 0.5) * 18
     });
     group.push(m);
   }
+
   burst(group, FX_PARTICLE_LIFE_MAX * 1000);
+  shockwave(scene, pos, COLORS[colorIdx].hex);
 }
 
 function destroyBlock(bk) {
@@ -755,7 +853,7 @@ function destroyBlock(bk) {
 }
 
 /* ============================================================
-   HIT RESOLUTION
+   HIT RESOLUTION  (same-color destroys + chains, others bounce)
    ============================================================ */
 function resolveHits() {
   for (const bl of balls) {
@@ -780,6 +878,9 @@ function resolveHits() {
         bl.body.velocity.z *= BALL_DESTROY_SLOWDOWN;
 
         cameraPunch(state, 1);
+        cameraShake(state, 0.18);
+
+        if (FX_WOBBLE_ENABLED) wobble(blocks, bk.mesh.position);
       }
     }
   }
@@ -894,7 +995,7 @@ function shoot() {
     spawnBall(dir, color);
   }
 
-  cameraPunch(state, 0.8);
+  cameraPunch(state, 0.9);
   buttonFeedback(dom.btnMultiball);
 
   state.ballsLeft--;
@@ -934,7 +1035,8 @@ function doEarthquake() {
     ));
   }
 
-  cameraShake(state, FX_SHAKE_DURATION);
+  cameraShake(state, 0.55);
+  cameraPunch(state, 1);
   updateProgressBar();
 }
 
@@ -948,6 +1050,7 @@ function activateMultiball() {
   updateHudCoins(true);
   updatePowerupUI();
   buttonFeedback(dom.btnMultiball);
+  pulse(dom.badgeMultiball, 1.3, UI_PULSE_MS);
 }
 
 function activateEarthquake() {
@@ -958,6 +1061,7 @@ function activateEarthquake() {
   updateHudCoins(true);
   updatePowerupUI();
   buttonFeedback(dom.btnEarthquake);
+  pulse(dom.badgeEarthquake, 1.3, UI_PULSE_MS);
   doEarthquake();
 }
 
@@ -1008,6 +1112,10 @@ function winLevel() {
   updateHudCoins(true);
   updatePowerupUI();
 
+  if (typeof confetti === 'function') {
+    confetti(dom.panel, FX_CONFETTI_COUNT, FX_CONFETTI_MS, FX_CONFETTI_GRAVITY);
+  }
+
   if (state.level >= LEVEL_MAX) {
     showOverlay(
       'YOU WIN!',
@@ -1045,7 +1153,7 @@ function loseLevel() {
 }
 
 /* ============================================================
-   MAIN UPDATE
+   AIM DOTS
    ============================================================ */
 function updateAimDots() {
   const dir = getAimDir();
@@ -1061,25 +1169,48 @@ function updateAimDots() {
     const dot = aimDots[i];
     dot.position.copy(p);
     dot.visible = show && p.y > -0.4;
-    const scale = Math.max(
+    const targetScale = Math.max(
       AIM_DOT_MIN_SCALE,
       1 - i / (aimDots.length * AIM_DOT_FALLOFF_DIV)
     );
-    dot.scale.setScalar(scale);
+    if (dot.visible) {
+      /* stagger the pop-in only once, then hold steady */
+      if (dot.scale.x < 0.05) {
+        dot.scale.setScalar(0.001);
+        import('animejs').then(({ default: animeLib }) => {
+          animeLib({
+            targets: dot.scale,
+            x: targetScale,
+            y: targetScale,
+            z: targetScale,
+            duration: FX_AIM_DOT_POP_MS,
+            delay: i * FX_AIM_DOT_STAGGER_MS,
+            easing: 'easeOutBack'
+          });
+        });
+      } else {
+        dot.scale.setScalar(targetScale);
+      }
+    } else {
+      dot.scale.setScalar(0.001);
+    }
   }
 }
 
+/* ============================================================
+   CAMERA EFFECTS  (shake + punch + slight FOV zoom)
+   ============================================================ */
 function applyCameraEffects() {
   let punchZ = 0;
   let punchY = 0;
   if (state.punchAmount > 0) {
-    punchZ = state.punchAmount * FX_PUNCH_Z_OFFSET;
-    punchY = state.punchAmount * FX_PUNCH_Y_OFFSET;
+    punchZ = state.punchAmount * 0.6;
+    punchY = state.punchAmount * 0.14;
   }
 
   let shakeX = 0, shakeY = 0, shakeZ = 0;
   if (state.shakeTime > 0) {
-    const k = state.shakeTime * FX_SHAKE_INTENSITY;
+    const k = state.shakeTime * 0.9;
     shakeX = (Math.random() - 0.5) * k;
     shakeY = (Math.random() - 0.5) * k;
     shakeZ = (Math.random() - 0.5) * k * 0.6;
@@ -1091,22 +1222,87 @@ function applyCameraEffects() {
     camBase.z + shakeZ - punchZ
   );
   camera.lookAt(camLook);
+
+  const targetFov = CAMERA_FOV + (state.punchAmount > 0 ? state.punchAmount * 2.2 : 0);
+  if (Math.abs(camera.fov - targetFov) > 0.01) {
+    camera.fov = targetFov;
+    camera.updateProjectionMatrix();
+  }
 }
 
+/* ============================================================
+   BALL TRAILS
+   ============================================================ */
+const trailGeo = new THREE.SphereGeometry(BALL_RADIUS * 0.85, 12, 10);
+
+function spawnTrailGhost(bl) {
+  if (!bl.trailGroup) return;
+  if (bl.trailGroup.children.length >= FX_TRAIL_COUNT) {
+    const oldest = bl.trailGroup.children[0];
+    bl.trailGroup.remove(oldest);
+    oldest.material.dispose && oldest.material.dispose();
+  }
+
+  const mat = new THREE.MeshBasicMaterial({
+    color: COLORS[bl.color].hex,
+    transparent: true,
+    opacity: FX_TRAIL_START_OPACITY,
+    depthWrite: false
+  });
+  const ghost = new THREE.Mesh(trailGeo, mat);
+  ghost.position.copy(bl.mesh.position);
+  ghost.scale.setScalar(FX_TRAIL_START_SCALE);
+  bl.trailGroup.add(ghost);
+
+  import('animejs').then(({ default: animeLib }) => {
+    animeLib({
+      targets: ghost.scale,
+      x: FX_TRAIL_END_SCALE,
+      y: FX_TRAIL_END_SCALE,
+      z: FX_TRAIL_END_SCALE,
+      duration: FX_TRAIL_FADE_MS,
+      easing: 'easeOutQuad'
+    });
+    animeLib({
+      targets: mat,
+      opacity: 0,
+      duration: FX_TRAIL_FADE_MS,
+      easing: 'easeOutQuad',
+      complete: () => {
+        if (bl.trailGroup) bl.trailGroup.remove(ghost);
+        mat.dispose();
+      }
+    });
+  });
+}
+
+/* ============================================================
+   MAIN UPDATE
+   ============================================================ */
 function update(dt) {
   if (state.playing) resolveHits();
 
   world.step(PHYSICS_STEP, dt, PHYSICS_MAX_SUBSTEP);
 
+  /* Sync block visuals */
   for (const b of blocks) {
     b.mesh.position.copy(b.body.position);
     b.mesh.quaternion.copy(b.body.quaternion);
   }
 
+  /* Sync / cull balls + trails */
   for (let i = balls.length - 1; i >= 0; i--) {
     const bl = balls[i];
     bl.mesh.position.copy(bl.body.position);
     bl.mesh.quaternion.copy(bl.body.quaternion);
+
+    if (bl.trailGroup) {
+      bl.trailTimer += dt * 1000;
+      if (bl.trailTimer >= FX_TRAIL_SPAWN_MS) {
+        bl.trailTimer = 0;
+        spawnTrailGhost(bl);
+      }
+    }
 
     bl.age += dt;
     const v = bl.body.velocity;
@@ -1120,10 +1316,12 @@ function update(dt) {
     ) {
       world.removeBody(bl.body);
       scene.remove(bl.mesh);
+      if (bl.trailGroup) scene.remove(bl.trailGroup);
       balls.splice(i, 1);
     }
   }
 
+  /* Particles */
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.life += dt;
@@ -1142,6 +1340,7 @@ function update(dt) {
   updateAimDots();
   applyCameraEffects();
 
+  /* Win / Lose */
   if (state.playing) {
     if (state.blocksLeft === 0) {
       winLevel();
@@ -1155,7 +1354,7 @@ function update(dt) {
 }
 
 /* ============================================================
-   INPUT HANDLERS
+   INPUT
    ============================================================ */
 let pointerDown = false;
 
@@ -1194,8 +1393,6 @@ window.addEventListener('keydown', (e) => {
 });
 
 if (dom.ballsWrap) {
-  dom.ballsWrap.style.pointerEvents = 'auto';
-  dom.ballsWrap.style.cursor = 'pointer';
   dom.ballsWrap.addEventListener('click', () => {
     if (!state.playing) return;
     cycleColor();
@@ -1241,10 +1438,9 @@ window.addEventListener('orientationchange', onResize);
    MAIN LOOP
    ============================================================ */
 let lastTime = performance.now();
-let rafId = 0;
 
 function loop(now) {
-  rafId = requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
 
   let dt = (now - lastTime) / 1000;
   lastTime = now;
@@ -1282,7 +1478,7 @@ function boot() {
   );
 
   lastTime = performance.now();
-  rafId = requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
 }
 
 boot();

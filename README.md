@@ -1,20 +1,23 @@
-# Tower Crash 3D — Static Site
+# Tower Crash 3D — Clone
 
-A browser-playable clone of **Tower Crash 3D** (inspired by the GameSnacks title of the same name). A tall column of colored blocks stands in the center of the arena. You aim a cannon and fire colored balls at it. Balls destroy blocks of the **same color** and chain through the tower; balls of a **different color** bounce off. Clear every block before you run out of balls.
+A browser-playable clone of **Tower Crash 3D** (inspired by the GameSnacks title). A single tall narrow tower of brightly colored blocks stands in the center of the arena. Aim a small cannon from the bottom of the screen and fire colored balls down the lane. Balls destroy blocks of the **same color** and chain through the tower; balls of a **different color** bounce off. Clear the tower before you run out of balls.
 
-No build step, no bundler, no server — plain HTML, CSS, and ES modules.
+Served by a tiny **Express** web service, deployed to **Render (free hobby plan)**.
 
 ---
 
 ## Tech Stack
 
-| Library   | Version | Delivery                                                          |
-| --------- | ------- | ----------------------------------------------------------------- |
-| Three.js  | 0.160.0 | ES module via CDN (unpkg) — declared in `index.html` importmap    |
-| cannon-es | 0.20.0  | ES module via CDN (unpkg) — declared in `index.html` importmap    |
-| anime.js  | 3.2.2   | ES module via CDN (jsDelivr) — declared in `index.html` importmap |
+| Layer     | Technology                                                            |
+| --------- | --------------------------------------------------------------------- |
+| Frontend  | Plain HTML + CSS + native ES modules                                  |
+| 3D        | **Three.js 0.160.0** — loaded via CDN importmap (unpkg)              |
+| Physics   | **cannon-es 0.20.0** — loaded via CDN importmap (unpkg)              |
+| Animation | **anime.js 3.2.2** — loaded via CDN importmap (jsDelivr)             |
+| Server    | **Node.js 18+** + **Express 4** — static file server                  |
+| Deploy    | **Render** Web Service (free tier), described by `render.yaml`        |
 
-All game code lives in `js/` and is loaded as native ES modules with relative paths. Nothing needs to be installed or compiled.
+No bundler. No build step. `node_modules` only ships Express.
 
 ---
 
@@ -24,13 +27,15 @@ All game code lives in `js/` and is loaded as native ES modules with relative pa
 .
 ├── index.html # HTML markup, importmap, links to CSS + JS
 ├── css/
-│ └── style.css # Sky/ocean look, HUD, power-up cards, overlays
+│ └── style.css # Sky/ocean background, HUD, power-ups, overlays
 ├── js/
-│ ├── config.js # All constants (colors, physics, levels, prices)
-│ ├── effects.js # anime.js effect helpers
-│ └── game.js # Entry module — scene, physics, gameplay
-├── README.md # This file
-└── render.yaml # Render Blueprint (static site)
+│ ├── config.js # All constants — colors, physics, levels, prices
+│ ├── effects.js # anime.js effect helpers (burst, shake, punch, …)
+│ └── game.js # Entry module — Three.js scene + cannon-es physics
+├── server.js # Express static server (process.env.PORT)
+├── package.json # Node deps: express; start: node server.js
+├── render.yaml # Render Web Service blueprint
+└── README.md # This file
 
 text
 Copy
@@ -40,135 +45,162 @@ Download
 
 ## Running Locally
 
-Because the game uses **native ES modules** and an **importmap**, it must be served over HTTP — opening `index.html` directly with `file://` will not work in most browsers (CORS + module resolution).
-
-From the project root, pick any of:
-
-### Option A — Python 3
+Requires **Node.js 18 or newer**.
 
 ```bash
-python3 -m http.server 8000
+# 1. Install the only server dependency (Express)
+npm install
 
-Open http://localhost:8000.
+# 2. Start the server
+npm start
 
-Option B — Node.js
-bash
-Copy
-Download
-npx serve .
+Then open http://localhost:3000 in a modern browser (Chrome, Edge, Firefox, Safari 16.4+).
 
-Or if http-server is installed:
+To use a different port:
 
 bash
 Copy
 Download
-npx http-server -p 8000 .
-Option C — VS Code
+PORT=8080 npm start
 
-Install the Live Server extension, right-click index.html, and choose Open with Live Server.
+The browser must be able to load ES modules and support importmaps. file:// opening of index.html will not work — the game must be served over HTTP, which npm start does.
 
-Option D — Any static file server
-
-Anything that serves the directory over HTTP works:
-
-bash
-Copy
-Download
-php -S localhost:8000
-# or
-ruby -run -e httpd . -p 8000
 How to Play
 
-Aim: move the mouse (or drag on touch) to aim the cannon.
+Aim: move the mouse (or drag your finger) to aim the cannon.
 
 Fire: click / tap / release, or press Space.
 
 Match colors: a ball destroys every block of its own color it passes through; blocks of a different color bounce it back.
 
-Switch color: tap the ball chip (bottom-left) or the muzzle ball to cycle to another color still on the field.
+Switch color: tap the ball counter chip (bottom-left) or the muzzle ball to cycle to another color that still exists on the tower.
 
-Power-ups (right side):
+Power-ups (right rail):
 
-Multiball — fires a 5-ball spread for the price of one shot.
+Multiball — 25 coins — fires a 5-ball spread for the price of one shot.
 
-Earthquake — destroys a random chunk of the tower and shakes the rest.
+Earthquake — 50 coins — destroys a random chunk of the tower and rocks the rest.
 
-Coins drop from destroying blocks and clearing levels; power-ups cost coins.
+Coins drop from destroyed blocks and cleared levels. Big combos multiply the payout.
 
-Progress bar fills as you clear blocks. Level shows current and next.
+Progress bar fills as the tower is cleared. The tower grows taller and gains colors as levels advance.
 
-Clear the tower to advance. The tower grows taller and gains more colors as you progress.
+Clear the tower to advance. Out of balls = game over, retry the level.
 
 Keyboard shortcuts
 Key	Action
 Space	Shoot
 Q	Earthquake
 E	Multiball
-Deploying to Render (Free Hobby — Static Site)
+Visual & Gameplay Details
 
-The project is ready to deploy as a Render Static Site. There is no build step and no server process.
+Matched to the original GameSnacks reference:
+
+Camera: far-back over-the-shoulder at distance ≈ 45 units, looking down the lane at the tower. The cannon is small at the bottom of the frame; the tower dominates the view.
+
+Tower: one tall narrow column of tightly stacked blocks — 8 at level 1, growing as levels progress, with more colors introduced over time.
+
+Muzzle ball: a large, clearly visible ball at the cannon mouth that shows the remaining ball count as a bold number.
+
+Arena: bright blue sky gradient fading to an ocean-blue floor; a faint lane strip marks the firing direction.
+
+HUD: gold coin counter (top-left), level + progress bar (top-center), shop button (top-right), two power-up cards on the right rail with coin prices.
+
+Effects: explosive color-matched debris + expanding shockwave ring on every destroy, strong screen shake, camera punch + slight FOV zoom, ball trails, animated coin/ball counters, power-up flash, tower wobble on impact, level-clear confetti, and game-over red vignette — all driven by anime.js.
+
+Deploying to Render (Free Web Service)
+
+This project uses a Render Web Service (Node environment), not a Static Site, because the deliverable runs through Express.
 
 Option A — Blueprint (recommended)
 
-The repo ships with render.yaml. To use it:
+The repo ships with render.yaml, which declares the service.
 
-Push the repo to GitHub (or GitLab / Bitbucket).
+Push this repository to GitHub / GitLab / Bitbucket.
 
 In the Render dashboard, click New + → Blueprint.
 
-Connect the repo and confirm the plan.
+Connect the repo. Render reads render.yaml and provisions:
 
-Render reads render.yaml, creates the Static Site, and deploys.
+Type: web
 
-The blueprint is equivalent to:
+Environment: node
 
-yaml
-Copy
-Download
-services:
-  - type: static
-    name: tower-crash-3d
-    runtime: static
-    buildCommand: ""
-    staticPublishPath: ./
-Option B — Manual Static Site
+Plan: free
 
-Push the repo to GitHub (or GitLab / Bitbucket).
+Build Command: npm install
 
-In the Render dashboard, click New + → Static Site.
-
-Connect the repo.
-
-Set:
-
-Name: t
-ower-crash-3d
- (or any)
+Start Command: node server.js
 
 Branch: main
 
-Build Command: (leave empty)
+Click Apply. Render builds and deploys automatically.
 
-Publish Directory: ./
+Every push to main triggers a redeploy.
 
-Click Create Static Site. Render deploys the repo as-is.
+Option B — Manual Web Service
 
-Every push to main triggers an automatic redeploy.
+Push the repository to GitHub / GitLab / Bitbucket.
 
-Custom domain
+In the Render dashboard, click New + → Web Service.
 
-In Render: Static Site → Settings → Custom Domains. Add the domain and follow the DNS instructions. HTTPS is provisioned automatically.
+Connect the repo.
+
+Fill in:
+
+Name: towercrash3d-clone (or any name)
+
+Environment: Node
+
+Region / Branch: pick your defaults (branch 
+main
+ recommended)
+
+Build Command: 
+npm install
+
+Start Command: node server.js
+
+Plan: Free
+
+Click Create Web Service. The first deploy runs immediately.
+
+Free-plan notes
+
+The free web service sleeps after 15 minutes of inactivity and cold-starts on the next request. This is expected on Render's free tier.
+
+Health check endpoint: GET /healthz returns { "ok": true, "uptime": <seconds> }.
+
+Custom domains: Settings → Custom Domains → add domain → follow DNS instructions. HTTPS is provisioned automatically.
+
+Configuration
+
+Every tunable — colors, physics constants, camera distance, level progression, combo multipliers, power-up prices, effect timings — lives in js/config.js.
+
+Common tweaks:
+
+Camera distance: CAMERA_BASE and CAMERA_LOOK.
+
+Ball speed: BALL_SPEED.
+
+Tower height at level 1: TOWER_HEIGHT.
+
+Colors introduced per level: colorsForLevel(level).
+
+Power-up prices: POWERUP_MULTIBALL.price, POWERUP_EARTHQUAKE.price.
+
+Starting coins: STARTING_COINS.
 
 Notes
 
-Requires a browser with WebGL and ES module + importmap support (Chrome, Edge, Firefox, Safari 16.4+).
+Requires WebGL and ES module + importmap support (all modern browsers).
 
-Libraries are fetched from CDNs on first load; the browser caches them afterwards.
+Three.js, cannon-es, and anime.js are fetched from CDNs on first load; the browser caches them afterwards.
 
-No analytics, cookies, or server-side logic.
+No analytics, cookies, or database. The server is a pure static file host.
 
-All tuning constants — colors, physics, level progression, prices, timings — live in js/config.js.
+See server.js for the small Express configuration (HTML no-cache, /healthz, SPA fallback).
 
 License
 
-Fan-made educational clone. Three.js, cannon-es, and anime.js retain their respective licenses. The original Tower Crash 3D name and concept belong to GameSnacks / Google.
+Fan-made educational clone. Three.js, cannon-es, and anime.js retain their respective licenses. The original Tower Crash 3D name and concept belong to GameSnacks / Google. No affiliation or endorsement is implied.

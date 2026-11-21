@@ -1,9 +1,15 @@
 services:
-  - type: static
+  - type: web
     name: towercrash3d-clone
+    env: node
+    plan: free
     repo: https://github.com/sivateam007/towercrash3d-clone
     branch: main
-    buildCommand: ""
-    staticPublishPath: ./
+    buildCommand: npm install
+    startCommand: node server.js
     autoDeploy: true
-    envVars: []
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "18"

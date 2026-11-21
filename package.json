@@ -1,0 +1,17 @@
+{
+  "name": "towercrash3d-clone",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tower Crash 3D clone — Three.js + cannon-es + anime.js, served by Express.",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

@@ -1,23 +1,22 @@
 /* ============================================================
    TOWER CRASH 3D — style.css
-   Bright sky → ocean gradient, clean GameSnacks-style HUD,
-   stacked power-up cards, and a polished overlay panel.
+   Bright sky → ocean look, clean GameSnacks-style HUD.
    ============================================================ */
 
 :root {
-  --sky-top:      #8fd4ff;
-  --sky-mid:      #c3e9ff;
-  --sky-low:      #5fb6f2;
-  --ocean-top:    #2f8fe0;
-  --ocean-bottom: #0b3f8f;
+  --sky-top:    #9fd9ff;
+  --sky-mid:    #c8ecff;
+  --sky-low:    #74c0f0;
+  --ocean-top:  #2f8fe0;
+  --ocean-bot:  #0a3f8f;
 
   --ink:        #0d2340;
   --ink-soft:   #35597f;
   --ink-faint:  #6e8bb0;
 
-  --card:        rgba(255, 255, 255, 0.82);
-  --card-strong: rgba(255, 255, 255, 0.94);
-  --card-border: rgba(255, 255, 255, 0.92);
+  --card:       rgba(255, 255, 255, 0.86);
+  --card-strong: rgba(255, 255, 255, 0.96);
+  --card-border: rgba(255, 255, 255, 0.95);
 
   --gold:      #ffcc33;
   --gold-dark: #c78f00;
@@ -27,11 +26,11 @@
   --blue-dark: #1b6bb5;
   --blue-deep: #0d3f75;
 
-  --shadow-soft: 0 10px 26px rgba(9, 40, 80, 0.18);
+  --shadow-soft: 0 10px 26px rgba(9, 40, 80, 0.20);
   --shadow-hard: 0 30px 80px rgba(6, 36, 80, 0.45);
 
-  --radius-pill: 999px;
-  --radius-card: 16px;
+  --radius-pill:  999px;
+  --radius-card:  16px;
   --radius-panel: 24px;
 
   --hud-pad: 14px;
@@ -39,7 +38,7 @@
 }
 
 /* ------------------------------------------------------------
-   RESET / BASE
+   RESET
    ------------------------------------------------------------ */
 *,
 *::before,
@@ -69,15 +68,15 @@ body {
     linear-gradient(
       to bottom,
       var(--sky-top)   0%,
-      var(--sky-mid)  28%,
-      var(--sky-low)  52%,
-      var(--ocean-top) 70%,
-      var(--ocean-bottom) 100%
+      var(--sky-mid)  30%,
+      var(--sky-low)  55%,
+      var(--ocean-top) 72%,
+      var(--ocean-bot) 100%
     );
 }
 
 /* ------------------------------------------------------------
-   SCENE HOST / BACKGROUND WASHES
+   SCENE / BACKGROUND WASHES
    ------------------------------------------------------------ */
 #scene {
   position: fixed;
@@ -106,8 +105,8 @@ body {
   top: 0;
   height: 62%;
   background:
-    radial-gradient(ellipse at 50% 16%, rgba(255, 255, 255, 0.60) 0%, rgba(255, 255, 255, 0.00) 58%),
-    radial-gradient(ellipse at 82% 8%,  rgba(255, 248, 210, 0.30) 0%, rgba(255, 248, 210, 0.00) 42%);
+    radial-gradient(ellipse at 50% 16%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 58%),
+    radial-gradient(ellipse at 82% 10%, rgba(255, 248, 210, 0.28) 0%, rgba(255, 248, 210, 0) 42%);
   mix-blend-mode: screen;
 }
 
@@ -118,15 +117,15 @@ body {
     linear-gradient(
       to bottom,
       rgba(47, 143, 224, 0)    0%,
-      rgba(28, 110, 195, 0.45) 42%,
-      rgba(11,  63, 143, 0.82) 100%
+      rgba(28, 110, 195, 0.42) 45%,
+      rgba(10,  63, 143, 0.82) 100%
     ),
     repeating-linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.000) 0px,
-      rgba(255, 255, 255, 0.000) 26px,
-      rgba(255, 255, 255, 0.045) 26px,
-      rgba(255, 255, 255, 0.045) 28px
+      rgba(255, 255, 255, 0.00)  0px,
+      rgba(255, 255, 255, 0.00) 26px,
+      rgba(255, 255, 255, 0.05) 26px,
+      rgba(255, 255, 255, 0.05) 28px
     );
 }
 
@@ -146,7 +145,8 @@ body {
 
 #hud button,
 #hud .coinChip,
-#hud .powerCard {
+#hud .powerCard,
+#hud .ballChip {
   pointer-events: auto;
 }
 
@@ -337,7 +337,9 @@ body {
 .powerCard.armed {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.55), 0 0 26px rgba(255, 210, 63, 0.55);
+  box-shadow:
+    0 0 0 2px rgba(255, 210, 63, 0.55),
+    0 0 26px rgba(255, 210, 63, 0.55);
 }
 
 .powerIcon {
@@ -419,7 +421,7 @@ body {
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .ballDot {
@@ -447,7 +449,7 @@ body {
   transform: translateX(-50%);
   padding: 7px 14px;
   border-radius: var(--radius-pill);
-  background: rgba(9, 40, 80, 0.28);
+  background: rgba(9, 40, 80, 0.30);
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
@@ -556,58 +558,33 @@ body {
    RESPONSIVE
    ------------------------------------------------------------ */
 @media (max-width: 480px) {
-  :root {
-    --hud-pad: 10px;
-  }
+  :root { --hud-pad: 10px; }
 
   .coinChip {
     min-width: 66px;
     padding: 6px 11px 6px 8px;
     gap: 6px;
   }
-
-  .coinIcon {
-    width: 20px;
-    height: 20px;
-  }
-
-  .coinValue {
-    font-size: 16px;
-  }
+  .coinIcon { width: 20px; height: 20px; }
+  .coinValue { font-size: 16px; }
 
   .levelBlock {
     min-width: 148px;
     max-width: 44vw;
     padding: 6px 11px 8px;
   }
-
-  .levelNow {
-    font-size: 16px;
-  }
-
-  .levelNext {
-    font-size: 10px;
-  }
-
-  .levelTrack {
-    height: 9px;
-  }
+  .levelNow { font-size: 16px; }
+  .levelNext { font-size: 10px; }
+  .levelTrack { height: 9px; }
 
   .iconBtn {
     width: 42px;
     height: 42px;
     border-radius: 12px;
   }
+  .iconBtn svg { width: 22px; height: 22px; }
 
-  .iconBtn svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  .powerRail {
-    top: 88px;
-    gap: 8px;
-  }
+  .powerRail { top: 88px; gap: 8px; }
 
   .powerCard {
     width: 78px;
@@ -615,89 +592,35 @@ body {
     border-radius: 14px;
     gap: 3px;
   }
+  .powerIcon { width: 28px; height: 28px; border-radius: 9px; }
+  .powerIcon svg { width: 22px; height: 22px; }
+  .powerLabel { font-size: 9px; }
+  .powerPrice { font-size: 10px; }
+  .powerBadge { min-width: 18px; height: 18px; line-height: 18px; font-size: 10px; }
 
-  .powerIcon {
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
-  }
-
-  .powerIcon svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  .powerLabel {
-    font-size: 9px;
-  }
-
-  .powerPrice {
-    font-size: 10px;
-  }
-
-  .powerBadge {
-    min-width: 18px;
-    height: 18px;
-    line-height: 18px;
-    font-size: 10px;
-  }
-
-  .ballChip {
-    padding: 6px 11px;
-    gap: 6px;
-  }
-
-  .ballValue {
-    font-size: 14px;
-  }
-
-  .ballDot {
-    width: 14px;
-    height: 14px;
-  }
+  .ballChip { padding: 6px 11px; gap: 6px; }
+  .ballValue { font-size: 14px; }
+  .ballDot { width: 14px; height: 14px; }
 
   .hint {
     font-size: 11px;
     padding: 6px 12px;
-    bottom: calc(var(--hud-pad) + var(--safe-bottom));
   }
 
-  .panel {
-    padding: 26px 20px 22px;
-    border-radius: 20px;
-  }
-
-  .panelText {
-    font-size: 13px;
-  }
-
-  .panelBtn {
-    padding: 14px 18px;
-    font-size: 16px;
-  }
+  .panel { padding: 26px 20px 22px; border-radius: 20px; }
+  .panelText { font-size: 13px; }
+  .panelBtn { padding: 14px 18px; font-size: 16px; }
 }
 
 @media (max-height: 520px) {
-  .powerRail {
-    top: 74px;
-    gap: 6px;
-  }
-
-  .powerCard {
-    padding: 6px 6px 5px;
-  }
-
-  .powerLabel {
-    display: none;
-  }
-
-  .hint {
-    display: none;
-  }
+  .powerRail { top: 74px; gap: 6px; }
+  .powerCard { padding: 6px 6px 5px; }
+  .powerLabel { display: none; }
+  .hint { display: none; }
 }
 
 /* ------------------------------------------------------------
-   ACCESSIBILITY / REDUCED MOTION
+   ACCESSIBILITY
    ------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   .powerCard,
@@ -710,7 +633,6 @@ body {
   }
 }
 
-/* Keyboard focus rings (mouse users don't see them) */
 button:focus-visible {
   outline: 3px solid rgba(255, 210, 63, 0.95);
   outline-offset: 2px;
