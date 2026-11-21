@@ -1,0 +1,7 @@
+services:
+  - type: static
+    name: towercrash3d-clone
+    repo: https://github.com/sivateam007/towercrash3d-clone
+    branch: main
+    buildCommand: ""
+    staticPublishPath: ./
