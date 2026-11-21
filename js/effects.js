@@ -9,30 +9,29 @@ import anime from 'animejs';
 import * as THREE from 'three';
 
 /* ============================================================
-   DEFAULT TIMINGS
-   Fallbacks so helpers work standalone; game.js passes overrides.
+   DEFAULT TIMINGS  (stronger defaults than v1)
    ============================================================ */
 const DEFAULTS = {
   burstMs:      700,
-  shakeSeconds: 0.55,
-  punchMs:      220,
+  shakeSeconds: 0.32,
+  punchMs:      200,
   countMs:      420,
   pulseMs:      320,
   buttonMs:     380,
   overlayInMs:  420,
   overlayOutMs: 260,
-  shockwaveMs:  420,
-  trailFadeMs:  300,
+  shockwaveMs:  500,
+  trailFadeMs:  350,
   wobbleMs:     340,
-  confettiMs:   1100
+  confettiMs:   1200,
+  scorePopupMs: 800
 };
 
-const PALETTE = ['#ff4d5a', '#3aa0ff', '#ffd23f', '#a66bff', '#35e07c',
-                 '#ff5ad2', '#2de2e6', '#ff8a3d', '#9dff3d', '#ff9ecb'];
+const PALETTE = ['#ff2e4a', '#0e7cff', '#ffc700', '#9a4dff', '#ff38b4',
+                 '#18d8e0', '#ff6b1a', '#7cff2e', '#ff7fbf', '#0fcfa0'];
 
 /* ============================================================
-   BURST — color-matched debris fade-out
-   Accepts a single Object3D or an array. Animates each to 0.
+   BURST — fade-out a set of Three.js meshes
    ============================================================ */
 export function burst(targets, durationMs = DEFAULTS.burstMs) {
   if (!targets) return;
@@ -61,8 +60,7 @@ export function burst(targets, durationMs = DEFAULTS.burstMs) {
 }
 
 /* ============================================================
-   SHAKE — writes state.shakeTime down to zero.
-   The renderer jitters the camera from that value each frame.
+   SHAKE — writes state.shakeTime down to zero
    ============================================================ */
 export function shake(state, durationSeconds = DEFAULTS.shakeSeconds) {
   if (!state || typeof state !== 'object') return;
@@ -78,8 +76,8 @@ export function shake(state, durationSeconds = DEFAULTS.shakeSeconds) {
 }
 
 /* ============================================================
-   PUNCH — writes state.punchAmount down to zero.
-   Renderer kicks the camera forward + FOV zooms in slightly.
+   PUNCH — writes state.punchAmount down to zero
+   FOV kick is applied in game.js from the same value.
    ============================================================ */
 export function punch(state, magnitude = 1, durationMs = DEFAULTS.punchMs) {
   if (!state || typeof state !== 'object') return;
@@ -95,7 +93,7 @@ export function punch(state, magnitude = 1, durationMs = DEFAULTS.punchMs) {
 }
 
 /* ============================================================
-   COUNT TO — tween a numeric property on a target object.
+   COUNT TO — tween a numeric property on a target object
    ============================================================ */
 export function countTo(obj, prop, target, durationMs = DEFAULTS.countMs, onUpdate) {
   if (!obj || typeof prop !== 'string') return;
@@ -119,9 +117,7 @@ export function countTo(obj, prop, target, durationMs = DEFAULTS.countMs, onUpda
 }
 
 /* ============================================================
-   PULSE — works on Three.js Object3D AND DOM elements.
-   Small-scale objects (fresh spawns) grow with overshoot.
-   Normal-scale objects pop to scaleTo then ease back.
+   PULSE — works on Three.js Object3D AND DOM elements
    ============================================================ */
 export function pulse(target, scaleTo = 1.15, durationMs = DEFAULTS.pulseMs) {
   if (!target) return;
@@ -134,9 +130,8 @@ export function pulse(target, scaleTo = 1.15, durationMs = DEFAULTS.pulseMs) {
     const bz = target.scale.z || 0.001;
     const base = (bx + by + bz) / 3;
 
-    const proxy = { s: base < 0.9 ? base : base };
-
     if (base < 0.9) {
+      const proxy = { s: base };
       anime({
         targets: proxy,
         s: scaleTo,
@@ -148,6 +143,7 @@ export function pulse(target, scaleTo = 1.15, durationMs = DEFAULTS.pulseMs) {
         }
       });
     } else {
+      const proxy = { s: base };
       anime({
         targets: proxy,
         s: [
@@ -188,13 +184,13 @@ export function buttonFeedback(el, durationMs = DEFAULTS.buttonMs) {
 }
 
 /* ============================================================
-   SHOCKWAVE — expanding ring at the impact point.
-   Purely visual, self-cleans on completion.
+   SHOCKWAVE — expanded + lengthened per analysis
+   Starts small, expands to 3.4 units over 500ms with fade.
    ============================================================ */
 export function shockwave(scene, position, hexColor = 0xffffff, durationMs = DEFAULTS.shockwaveMs) {
   if (!scene || !position || !position.isVector3) return;
 
-  const geo = new THREE.TorusGeometry(0.32, 0.055, 8, 32);
+  const geo = new THREE.TorusGeometry(0.32, 0.06, 10, 40);
   const mat = new THREE.MeshBasicMaterial({
     color: hexColor,
     transparent: true,
@@ -209,11 +205,11 @@ export function shockwave(scene, position, hexColor = 0xffffff, durationMs = DEF
   ring.rotation.x = Math.PI / 2;
   scene.add(ring);
 
-  const proxy = { s: 0.35, o: 0.95 };
+  const proxy = { s: 0.32, o: 0.95 };
 
   anime({
     targets: proxy,
-    s: 3.0,
+    s: 3.4,
     o: 0,
     duration: durationMs,
     easing: 'easeOutQuad',
@@ -230,91 +226,57 @@ export function shockwave(scene, position, hexColor = 0xffffff, durationMs = DEF
 }
 
 /* ============================================================
-   BALL TRAIL — helper used by game.js to fade a trail ghost.
+   WOBBLE — small physics impulse on nearby blocks so the
+   tower visibly rocks on impact. Radius and strength params.
    ============================================================ */
-export function ballTrail(ghost, durationMs = DEFAULTS.trailFadeMs) {
-  if (!ghost) return;
-
-  if (ghost.material) {
-    ghost.material.transparent = true;
-  }
-
-  const startScale = ghost.scale.x || 1;
-  const startOpacity = (ghost.material && ghost.material.opacity) || 0.55;
-
-  anime({
-    targets: ghost.scale,
-    x: 0.05, y: 0.05, z: 0.05,
-    duration: durationMs,
-    easing: 'easeOutQuad'
-  });
-
-  if (ghost.material) {
-    anime({
-      targets: ghost.material,
-      opacity: 0,
-      duration: durationMs,
-      easing: 'easeOutQuad'
-    });
-  }
-
-  return { startScale, startOpacity };
-}
-
-/* ============================================================
-   WOBBLE — applies a small physics impulse to nearby blocks
-   so the tower visibly rocks when a ball bounces or an impact
-   happens nearby. Uses anime only to stagger the impulses.
-   ============================================================ */
-export function wobble(blocks, origin, radius = 2.4, strength = 1) {
+export function wobble(blocks, origin, radius = 3.2, strength = 1.4) {
   if (!blocks || !blocks.length || !origin) return;
 
   const rx = origin.x !== undefined ? origin.x : 0;
   const ry = origin.y !== undefined ? origin.y : 0;
   const rz = origin.z !== undefined ? origin.z : 0;
 
+  // VISUAL-ONLY wobble: blocks are STATIC physics bodies and must never
+  // receive velocity/impulses (that would make the tower tumble). We animate
+  // the mesh rotation a little, then restore it. Physics body is untouched.
   blocks.forEach((b, i) => {
-    if (!b || !b.body) return;
+    if (!b || !b.mesh) return;
 
-    const bp = b.body.position;
+    const bp = b.mesh.position;
     const dx = bp.x - rx;
     const dy = bp.y - ry;
     const dz = bp.z - rz;
     const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (dist > radius) return;
 
-    const s = (1 - dist / radius) * strength;
+    const s = (1 - dist / radius) * Math.min(strength, 1);
     if (s <= 0.02) return;
 
+    const mesh = b.mesh;
+    const baseRotX = mesh.rotation.x;
+    const baseRotZ = mesh.rotation.z;
+    const dxRot = (Math.random() - 0.5) * 0.18 * s;
+    const dzRot = (Math.random() - 0.5) * 0.18 * s;
     anime({
-      targets: { p: 0 },
-      p: 1,
-      duration: 1,
+      targets: mesh.rotation,
+      x: [baseRotX + dxRot, baseRotX],
+      z: [baseRotZ + dzRot, baseRotZ],
+      duration: 320,
       delay: i * 8,
-      complete: () => {
-        if (!b.body) return;
-        b.body.wakeUp();
-        b.body.velocity.x += (Math.random() - 0.5) * 2.4 * s;
-        b.body.velocity.z += (Math.random() - 0.5) * 2.4 * s;
-        b.body.angularVelocity.x += (Math.random() - 0.5) * 3.2 * s;
-        b.body.angularVelocity.z += (Math.random() - 0.5) * 3.2 * s;
-      }
+      easing: 'easeOutElastic(1, 0.6)'
     });
   });
 }
 
 /* ============================================================
-   CONFETTI — colored squares burst from a container's centre.
-   Used on the level-clear overlay. Self-cleans.
+   CONFETTI — colored squares burst from a container's center
    ============================================================ */
-export function confetti(container, count = 24, durationMs = DEFAULTS.confettiMs, gravity = 900) {
+export function confetti(container, count = 26, durationMs = DEFAULTS.confettiMs, gravity = 900) {
   if (!container || !document.body) return;
 
   const rect = container.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
-
-  const pieces = [];
 
   for (let i = 0; i < count; i++) {
     const el = document.createElement('div');
@@ -332,7 +294,6 @@ export function confetti(container, count = 24, durationMs = DEFAULTS.confettiMs
       'will-change:transform,opacity;';
 
     document.body.appendChild(el);
-    pieces.push(el);
 
     const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6;
     const speed = 300 + Math.random() * 380;
@@ -368,9 +329,72 @@ export function confetti(container, count = 24, durationMs = DEFAULTS.confettiMs
 }
 
 /* ============================================================
-   OVERLAY IN — fade overlay in, pop panel, optional vignette.
-   If the title looks like a "lose" state, tint red;
-   if "win", add a soft gold glow.
+   SCORE POPUP — floating +N text sprite at a 3D position
+   Also exported for callers who want the full lifecycle
+   handled inside effects.js.
+   ============================================================ */
+export function scorePopup(scene, position, value, colorHex = 0xffffff, durationMs = DEFAULTS.scorePopupMs, rise = 3.0) {
+  if (!scene || !position || !position.isVector3) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const cssColor = '#' + (colorHex >>> 0).toString(16).padStart(6, '0');
+
+  ctx.font = '900 96px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = 'rgba(10, 30, 60, 0.92)';
+  ctx.strokeText('+' + value, 128, 68);
+  ctx.fillStyle = cssColor;
+  ctx.fillText('+' + value, 128, 68);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 4;
+  ctx.strokeText('+' + value, 128, 68);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+
+  const mat = new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    fog: false
+  });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(2.4, 1.2, 1);
+  sprite.position.copy(position);
+  sprite.position.y += 1.6;
+  sprite.renderOrder = 1000;
+  scene.add(sprite);
+
+  const proxy = { y: sprite.position.y, o: 1 };
+
+  anime({
+    targets: proxy,
+    y: sprite.position.y + rise,
+    o: 0,
+    duration: durationMs,
+    easing: 'easeOutQuad',
+    update: () => {
+      sprite.position.y = proxy.y;
+      if (sprite.material) sprite.material.opacity = Math.max(0, proxy.o);
+    },
+    complete: () => {
+      scene.remove(sprite);
+      tex.dispose();
+      mat.dispose();
+    }
+  });
+
+  return sprite;
+}
+
+/* ============================================================
+   OVERLAY IN — fade overlay in, pop panel, red/gold vignette
    ============================================================ */
 export function overlayIn(overlayEl, panelEl, durationMs = DEFAULTS.overlayInMs) {
   if (!overlayEl) return;
@@ -382,7 +406,6 @@ export function overlayIn(overlayEl, panelEl, durationMs = DEFAULTS.overlayInMs)
   const titleText = titleEl ? (titleEl.textContent || '') : '';
   const isLose = /LOSE|OUT OF|GAME OVER|FAIL/i.test(titleText);
 
-  /* Ensure a vignette layer exists */
   let vignette = overlayEl.querySelector('.vignette');
   if (!vignette) {
     vignette = document.createElement('div');
@@ -417,14 +440,12 @@ export function overlayIn(overlayEl, panelEl, durationMs = DEFAULTS.overlayInMs)
   }
 
   if (isLose) {
-    /* Dramatic red vignette pulse */
     anime({
       targets: vignette,
       opacity: [0, 0.9, 0.55],
       duration: 900,
       easing: 'easeOutQuad'
     });
-    /* Subtle panel shake */
     if (panelEl) {
       anime({
         targets: panelEl,
@@ -445,8 +466,7 @@ export function overlayIn(overlayEl, panelEl, durationMs = DEFAULTS.overlayInMs)
 }
 
 /* ============================================================
-   OVERLAY OUT — fade panel and overlay, then remove `.show`.
-   Calls onComplete exactly once.
+   OVERLAY OUT — fade panel and overlay, remove `.show`
    ============================================================ */
 export function overlayOut(overlayEl, panelEl, onComplete, durationMs = DEFAULTS.overlayOutMs) {
   if (!overlayEl) {

@@ -1,6 +1,8 @@
 /* ============================================================
    TOWER CRASH 3D — style.css
    Bright sky → ocean look, clean GameSnacks-style HUD.
+   LIGHT MODIFY: inner+outer power-card shadow, coin-chip
+   pulse keyframe, stronger hint-chip contrast.
    ============================================================ */
 
 :root {
@@ -176,6 +178,9 @@ body {
   font-weight: 800;
   line-height: 1;
   min-width: 78px;
+  animation: coinPulse 2.4s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, box-shadow;
 }
 
 .coinIcon {
@@ -191,6 +196,12 @@ body {
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   min-width: 2ch;
+}
+
+@keyframes coinPulse {
+  0%   { box-shadow: var(--shadow-soft); }
+  50%  { box-shadow: var(--shadow-soft), 0 0 18px rgba(255, 204, 51, 0.35); }
+  100% { box-shadow: var(--shadow-soft); }
 }
 
 /* ---- Level / progress ---- */
@@ -317,7 +328,12 @@ body {
   border: 1px solid var(--card-border);
   border-radius: var(--radius-card);
   background: var(--card);
-  box-shadow: var(--shadow-soft);
+  /* Inner highlight + outer drop shadow = believable raised card */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(9, 40, 80, 0.06),
+    0 8px 22px rgba(9, 40, 80, 0.22),
+    0 2px 4px rgba(9, 40, 80, 0.10);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: var(--ink);
@@ -327,6 +343,9 @@ body {
 
 .powerCard:active {
   transform: scale(0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 4px 12px rgba(9, 40, 80, 0.25);
 }
 
 .powerCard:disabled {
@@ -338,8 +357,10 @@ body {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
   box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
     0 0 0 2px rgba(255, 210, 63, 0.55),
-    0 0 26px rgba(255, 210, 63, 0.55);
+    0 0 26px rgba(255, 210, 63, 0.55),
+    0 8px 22px rgba(9, 40, 80, 0.22);
 }
 
 .powerIcon {
@@ -350,7 +371,9 @@ body {
   border-radius: 10px;
   background: linear-gradient(180deg, #eaf5ff, #c9e3fb);
   color: var(--blue-dark);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(9, 40, 80, 0.12);
 }
 
 .powerIcon svg {
@@ -428,8 +451,8 @@ body {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--ball-color, #ff4d5a);
-  box-shadow: 0 0 12px var(--ball-color, #ff4d5a);
+  background: var(--ball-color, #ff2e4a);
+  box-shadow: 0 0 12px var(--ball-color, #ff2e4a);
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -447,16 +470,22 @@ body {
   bottom: calc(var(--hud-pad) + var(--safe-bottom));
   z-index: 10;
   transform: translateX(-50%);
-  padding: 7px 14px;
+  padding: 8px 16px;
   border-radius: var(--radius-pill);
-  background: rgba(9, 40, 80, 0.30);
+  /* Higher-contrast dark pill on the bright sky */
+  background: rgba(6, 24, 52, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 12.5px;
+  font-weight: 800;
   letter-spacing: 0.02em;
   white-space: nowrap;
-  text-shadow: 0 1px 3px rgba(0, 20, 60, 0.45);
-  box-shadow: 0 6px 18px rgba(6, 36, 80, 0.25);
+  text-shadow: 0 1px 3px rgba(0, 15, 40, 0.65);
+  box-shadow:
+    0 6px 18px rgba(6, 36, 80, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   pointer-events: none;
 }
 
@@ -628,8 +657,10 @@ body {
   .panelBtn,
   .levelFill,
   .levelNotch,
-  .ballDot {
+  .ballDot,
+  .coinChip {
     transition: none;
+    animation: none;
   }
 }
 
